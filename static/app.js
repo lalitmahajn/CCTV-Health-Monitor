@@ -632,38 +632,97 @@ window.ackIncident = async function(id) {
   loadIncidents();
 };
 
+// Copy stream URL helper
+window.copyStreamUrl = function(id) {
+  const cam = cameras.find(c => c.id === id);
+  if (!cam) return;
+  const url = cam.masked_url || cam.rtsp_url;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      showToast("Copied to Clipboard", "RTSP stream URL copied", false);
+    }).catch(() => {
+      prompt("Copy RTSP URL:", url);
+    });
+  } else {
+    prompt("Copy RTSP URL:", url);
+  }
+};
+
 // Camera Inventory Table & Form Modal
 function renderInventoryTable() {
   const tbody = document.getElementById("camera-inventory-body");
-  if (cameras.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No cameras configured. Click "+ Add Camera" or import a CSV!</td></tr>`;
+  const countBadge = document.getElementById("inventory-count");
+  const searchFilter = (document.getElementById("inventory-search")?.value || "").trim().toLowerCase();
+
+  let list = cameras;
+  if (searchFilter) {
+    list = cameras.filter(c => 
+      (c.name && c.name.toLowerCase().includes(searchFilter)) ||
+      (c.dvr_nvr_name && c.dvr_nvr_name.toLowerCase().includes(searchFilter)) ||
+      (c.location && c.location.toLowerCase().includes(searchFilter)) ||
+      (c.ip_address && c.ip_address.includes(searchFilter)) ||
+      (c.channel_no && String(c.channel_no).includes(searchFilter))
+    );
+  }
+
+  if (countBadge) {
+    countBadge.textContent = `${list.length} of ${cameras.length} cameras`;
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">${cameras.length === 0 ? 'No cameras configured. Click "+ Add Camera" or import a CSV!' : 'No cameras match your search filter.'}</td></tr>`;
     return;
   }
-  tbody.innerHTML = cameras.map(c => `
+
+  tbody.innerHTML = list.map(c => `
     <tr class="${c.is_no_cam ? 'nocam-row' : ''}">
-      <td style="font-weight: 600; ${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.name}</td>
-      <td style="${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.dvr_nvr_name || 'N/A'}</td>
-      <td style="${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.channel_no || 'N/A'}</td>
-      <td style="${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.location || 'N/A'}</td>
-      <td style="font-family: monospace; font-size: 0.8rem;">${c.ip_address}</td>
-      <td>${c.port || 554}</td>
-      <td style="font-family: monospace; font-size: 0.75rem;">${c.masked_url}</td>
+      <td style="font-weight: 600; white-space: nowrap; ${c.is_no_cam ? 'color: var(--text-muted);' : ''}">
+        ${c.name}
+      </td>
+      <td style="white-space: nowrap; ${c.is_no_cam ? 'color: var(--text-muted);' : ''}">
+        <div style="display: inline-flex; align-items: center; gap: 0.45rem;">
+          <span>${c.dvr_nvr_name || 'N/A'}</span>
+          <span class="ch-tag">${c.channel_no ? 'Ch ' + c.channel_no : '---'}</span>
+        </div>
+      </td>
+      <td style="white-space: nowrap; ${c.is_no_cam ? 'color: var(--text-muted);' : ''}">
+        ${c.location || 'N/A'}
+      </td>
+      <td style="font-family: monospace; font-size: 0.8rem; white-space: nowrap;">
+        ${c.ip_address}:${c.port || 554}
+      </td>
       <td>
+        <div class="stream-url-pill" onclick="copyStreamUrl(${c.id})" title="Click to copy stream URL: ${c.masked_url}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="stream-url-text">${c.masked_url}</span>
+        </div>
+      </td>
+      <td style="white-space: nowrap;">
         ${c.is_no_cam 
           ? `<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px dashed rgba(255,255,255,0.2);">NO CAM</span>` 
           : `<span class="badge ${c.status === 'ONLINE' ? 'online' : (c.status === 'WARNING' ? 'warning' : 'offline')}">${c.status}</span>`
         }
       </td>
       <td style="white-space: nowrap; text-align: right;">
-        <button class="btn btn-sm" onclick="takeSnapshot(${c.id})" title="Capture live snapshot" style="margin-right: 4px;">Snap</button>
-        <button class="btn btn-sm" onclick="editCamera(${c.id})">Edit</button>
-        <button class="btn btn-sm" style="color: ${c.is_no_cam ? '#60a5fa' : 'var(--text-muted)'}; margin-left: 4px;" onclick="toggleNoCam(${c.id})" title="${c.is_no_cam ? 'Restore to active' : 'Mark as spare'}">
-          ${c.is_no_cam ? 'Unmark' : 'No Cam'}
-        </button>
-        <button class="btn btn-sm btn-danger" style="margin-left: 4px;" onclick="deleteCamera(${c.id})">Del</button>
+        <div class="row-actions">
+          <button class="btn btn-sm" onclick="takeSnapshot(${c.id})" title="Capture live snapshot" style="display: inline-flex; align-items: center; gap: 3px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Snap
+          </button>
+          <button class="btn btn-sm" onclick="editCamera(${c.id})">Edit</button>
+          <button class="btn btn-sm ${c.is_no_cam ? 'btn-nocam-active' : ''}" onclick="toggleNoCam(${c.id})" title="${c.is_no_cam ? 'Restore to active' : 'Mark as spare'}">
+            ${c.is_no_cam ? 'Unmark' : 'No Cam'}
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="deleteCamera(${c.id})">Del</button>
+        </div>
       </td>
     </tr>
   `).join("");
+}
+
+const invSearchInput = document.getElementById("inventory-search");
+if (invSearchInput) {
+  invSearchInput.addEventListener("input", renderInventoryTable);
 }
 
 const modal = document.getElementById("camera-modal");

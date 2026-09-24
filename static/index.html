@@ -212,24 +212,31 @@
 
     <!-- TAB 3: CAMERA INVENTORY -->
     <div id="tab-cameras" class="tab-pane">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3>Camera Configuration Inventory</h3>
-        <button class="btn btn-primary" id="btn-add-camera">+ Add Camera</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <h3 style="margin: 0;">Camera Inventory</h3>
+          <span id="inventory-count" class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border-subtle); font-size: 0.75rem; padding: 0.2rem 0.6rem;"></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <div class="search-input-wrapper" style="width: 280px;">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="inventory-search" class="search-input" placeholder="Search name, NVR, location, IP..." style="padding-left: 2rem;">
+          </div>
+          <button class="btn btn-primary" id="btn-add-camera">+ Add Camera</button>
+        </div>
       </div>
 
       <div class="table-responsive">
         <table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>DVR/NVR Name</th>
-              <th>Channel</th>
+              <th>Camera Name</th>
+              <th>Recorder & Channel</th>
               <th>Location</th>
-              <th>IP Address</th>
-              <th>Port</th>
-              <th>Masked Stream URL</th>
+              <th>Endpoint</th>
+              <th>RTSP Stream URL</th>
               <th>Status</th>
-              <th>Actions</th>
+              <th style="text-align: right;">Actions</th>
             </tr>
           </thead>
           <tbody id="camera-inventory-body">

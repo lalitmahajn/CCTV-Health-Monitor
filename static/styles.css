@@ -194,7 +194,7 @@ header {
 main {
   flex: 1;
   padding: 1.5rem 2rem;
-  max-width: 1480px;
+  max-width: 1760px;
   margin: 0 auto;
   width: 100%;
 }
@@ -431,6 +431,7 @@ td {
   padding: 0.5rem 0.85rem;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-secondary);
+  vertical-align: middle;
 }
 
 tr:last-child td {
@@ -456,6 +457,62 @@ tr.nocam-row td {
 
 tr.nocam-row:hover td {
   opacity: 1;
+}
+
+/* Inventory Table Utilities */
+.stream-url-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 260px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.55rem;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.stream-url-pill:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.stream-url-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.btn-nocam-active {
+  color: #60a5fa !important;
+  border-color: rgba(96, 165, 250, 0.3) !important;
 }
 
 /* Visuals Rack Bay Matrix */
