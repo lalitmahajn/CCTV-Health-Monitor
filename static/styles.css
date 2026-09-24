@@ -428,6 +428,85 @@ main {
 .status-dot.warning { background-color: var(--warning); }
 .status-dot.offline { background-color: var(--offline); }
 
+/* Heatmap Grid */
+.heatmap-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+  gap: 5px;
+  padding: 0.5rem 0;
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background-color: #334155;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.35);
+  z-index: 10;
+  filter: brightness(1.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.heatmap-cell.status-ONLINE {
+  background-color: var(--online);
+}
+
+.heatmap-cell.status-WARNING {
+  background-color: var(--warning);
+}
+
+.heatmap-cell.status-OFFLINE {
+  background-color: var(--offline);
+}
+
+/* Progress Bars */
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: var(--bg-primary);
+  border-radius: 9999px;
+  overflow: hidden;
+  display: flex;
+}
+
+.progress-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.progress-segment.online { background-color: var(--online); }
+.progress-segment.warning { background-color: var(--warning); }
+.progress-segment.offline { background-color: var(--offline); }
+
+.latency-tile {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.4rem;
+}
+
+.latency-tile .val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.latency-tile .lbl {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

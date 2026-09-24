@@ -18,6 +18,7 @@
 
     <nav class="nav-tabs">
       <button class="nav-tab active" data-tab="tab-dashboard">📊 Dashboard</button>
+      <button class="nav-tab" data-tab="tab-visuals">📈 Visuals & Heatmap</button>
       <button class="nav-tab" data-tab="tab-incidents">⚠️ Incidents & Outages</button>
       <button class="nav-tab" data-tab="tab-cameras">⚙️ Cameras</button>
       <button class="nav-tab" data-tab="tab-csv">📥 Bulk CSV</button>
@@ -76,6 +77,62 @@
       <!-- NVR-Grouped Compact Table Container -->
       <div id="nvr-groups-container" style="display: flex; flex-direction: column; gap: 1rem;">
         <!-- Dynamically rendered NVR accordion blocks with compact tables -->
+      </div>
+    </div>
+
+    <!-- TAB: VISUALS & HEATMAP -->
+    <div id="tab-visuals" class="tab-pane">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h3 style="font-size: 1.15rem; font-weight: 700;">Fleet Status Matrix & Visual Analytics</h3>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">Real-time visual health across all recorders, locations, and network latency</div>
+        </div>
+        <div style="display: flex; gap: 0.75rem; align-items: center; font-size: 0.82rem;">
+          <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span class="status-dot online"></span> Online</span>
+          <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span class="status-dot warning"></span> Warning</span>
+          <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span class="status-dot offline"></span> Offline</span>
+        </div>
+      </div>
+
+      <!-- 1. Full 270 Camera Bird's-Eye Heatmap Grid -->
+      <div class="stat-card" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <h4 style="font-size: 0.95rem; font-weight: 600;">270-Camera Bird's-Eye Status Matrix (Rack View)</h4>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Hover cell for camera details • Click to check</span>
+        </div>
+        <div id="heatmap-grid" class="heatmap-container">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 2. Dual Columns: NVR Health Bars & Latency Distribution -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+        <!-- NVR Health Breakdown -->
+        <div class="stat-card">
+          <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 1rem;">NVR / DVR Health & Availability %</h4>
+          <div id="nvr-health-bars" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Latency & Zone Distribution -->
+        <div class="stat-card">
+          <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 1rem;">Network Latency & Physical Zones</h4>
+          
+          <div style="margin-bottom: 1.25rem;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">Network Response Latency</div>
+            <div id="latency-distribution" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; text-align: center;">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border); margin-bottom: 1rem;">
+
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Location Zone Summary</div>
+          <div id="zone-summary-list" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 240px; overflow-y: auto;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
       </div>
     </div>
 

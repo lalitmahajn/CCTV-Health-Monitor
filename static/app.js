@@ -65,6 +65,7 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
     const target = tab.getAttribute("data-tab");
     document.getElementById(target).classList.add("active");
 
+    if (target === "tab-visuals") renderVisuals();
     if (target === "tab-incidents") loadIncidents();
     if (target === "tab-cameras") renderInventoryTable();
     if (target === "tab-settings") loadSettings();
@@ -289,6 +290,113 @@ document.getElementById("btn-collapse-all").addEventListener("click", () => {
 document.getElementById("cam-search").addEventListener("input", renderNvrGroupedTables);
 document.getElementById("filter-status").addEventListener("change", renderNvrGroupedTables);
 document.getElementById("filter-nvr").addEventListener("change", renderNvrGroupedTables);
+
+// Render Visuals & Heatmap Tab
+function renderVisuals() {
+  if (!cameras || cameras.length === 0) return;
+
+  // 1. Heatmap Matrix
+  const heatmapGrid = document.getElementById("heatmap-grid");
+  heatmapGrid.innerHTML = cameras.map((c, i) => {
+    const status = c.status || 'UNKNOWN';
+    const ch = c.channel_no ? c.channel_no : (i + 1);
+    const title = `${c.name || 'Cam'} (Ch ${ch})\nNVR: ${c.dvr_nvr_name || 'N/A'}\nStatus: ${status}\nIP: ${c.ip_address}\nLatency: ${c.latency_ms || 0}ms`;
+    return `
+      <div class="heatmap-cell status-${status}" 
+           title="${title}" 
+           onclick="checkCamera(${c.id})">
+        ${ch}
+      </div>
+    `;
+  }).join("");
+
+  // 2. NVR Health Bars
+  const nvrHealthContainer = document.getElementById("nvr-health-bars");
+  const groups = {};
+  cameras.forEach(cam => {
+    const nvr = cam.dvr_nvr_name || "Direct IP / Unassigned";
+    if (!groups[nvr]) groups[nvr] = [];
+    groups[nvr].push(cam);
+  });
+
+  const sortedNvrs = Object.keys(groups).sort();
+  nvrHealthContainer.innerHTML = sortedNvrs.map(nvr => {
+    const list = groups[nvr];
+    const total = list.length;
+    const online = list.filter(c => c.status === "ONLINE").length;
+    const warning = list.filter(c => c.status === "WARNING").length;
+    const offline = list.filter(c => c.status === "OFFLINE").length;
+
+    const pctOnline = Math.round((online / total) * 100);
+    const pctWarning = Math.round((warning / total) * 100);
+    const pctOffline = Math.round((offline / total) * 100);
+
+    return `
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+          <span style="font-weight: 600;">${nvr}</span>
+          <span style="color: var(--text-muted);">${online}/${total} Online (${pctOnline}%)</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-segment online" style="width: ${pctOnline}%;"></div>
+          <div class="progress-segment warning" style="width: ${pctWarning}%;"></div>
+          <div class="progress-segment offline" style="width: ${pctOffline}%;"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // 3. Latency Distribution Tiles
+  const fast = cameras.filter(c => c.status === "ONLINE" && c.latency_ms < 50).length;
+  const normal = cameras.filter(c => c.status === "ONLINE" && c.latency_ms >= 50 && c.latency_ms < 200).length;
+  const slow = cameras.filter(c => c.status === "ONLINE" && c.latency_ms >= 200).length;
+  const down = cameras.filter(c => c.status === "OFFLINE").length;
+
+  const latContainer = document.getElementById("latency-distribution");
+  latContainer.innerHTML = `
+    <div class="latency-tile">
+      <div class="val" style="color: var(--online);">${fast}</div>
+      <div class="lbl">⚡ Fast (&lt;50ms)</div>
+    </div>
+    <div class="latency-tile">
+      <div class="val" style="color: #60a5fa;">${normal}</div>
+      <div class="lbl">🟢 Normal (50-200ms)</div>
+    </div>
+    <div class="latency-tile">
+      <div class="val" style="color: var(--warning);">${slow}</div>
+      <div class="lbl">🟡 Slow (&gt;200ms)</div>
+    </div>
+    <div class="latency-tile">
+      <div class="val" style="color: var(--offline);">${down}</div>
+      <div class="lbl">🔴 Unreachable</div>
+    </div>
+  `;
+
+  // 4. Physical Zone Breakdown
+  const zones = {};
+  cameras.forEach(c => {
+    const z = c.location || "Unassigned Zone";
+    if (!zones[z]) zones[z] = { total: 0, online: 0, offline: 0 };
+    zones[z].total++;
+    if (c.status === "ONLINE") zones[z].online++;
+    if (c.status === "OFFLINE") zones[z].offline++;
+  });
+
+  const zoneList = document.getElementById("zone-summary-list");
+  zoneList.innerHTML = Object.keys(zones).sort().map(z => {
+    const item = zones[z];
+    const isClean = item.offline === 0;
+    return `
+      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); padding: 0.45rem 0.75rem; border-radius: 6px; font-size: 0.8rem;">
+        <span style="font-weight: 500;">${z}</span>
+        <div>
+          <span style="color: var(--text-muted); margin-right: 0.5rem;">${item.online}/${item.total}</span>
+          <span class="badge ${isClean ? 'online' : 'offline'}">${isClean ? 'All Healthy' : item.offline + ' Down'}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
 
 // Manual Camera Re-Check
 window.checkCamera = async function(id) {
