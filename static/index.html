@@ -9,25 +9,45 @@
 <body>
   <header>
     <div class="brand">
-      <div class="brand-icon">📹</div>
+      <div class="brand-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+      </div>
       <div>
-        <div>CCTV Health Monitor</div>
-        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">Enterprise Multi-NVR Watchdog</div>
+        <div class="brand-title">CCTV Health Monitor</div>
+        <div class="brand-subtitle">Enterprise Recorder Watchdog</div>
       </div>
     </div>
 
     <nav class="nav-tabs">
-      <button class="nav-tab active" data-tab="tab-dashboard">📊 Dashboard</button>
-      <button class="nav-tab" data-tab="tab-visuals">📈 Visuals & Heatmap</button>
-      <button class="nav-tab" data-tab="tab-incidents">⚠️ Incidents & Outages</button>
-      <button class="nav-tab" data-tab="tab-cameras">⚙️ Cameras</button>
-      <button class="nav-tab" data-tab="tab-csv">📥 Bulk CSV</button>
-      <button class="nav-tab" data-tab="tab-settings">🔧 Settings</button>
+      <button class="nav-tab active" data-tab="tab-dashboard">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-tab" data-tab="tab-visuals">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        Visuals & Heatmap
+      </button>
+      <button class="nav-tab" data-tab="tab-incidents">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+        Incidents
+      </button>
+      <button class="nav-tab" data-tab="tab-cameras">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        Cameras
+      </button>
+      <button class="nav-tab" data-tab="tab-csv">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Bulk CSV
+      </button>
+      <button class="nav-tab" data-tab="tab-settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
     </nav>
 
     <div class="header-controls">
-      <button class="btn btn-sm" id="btn-audio-toggle">🔊 Sound: ON</button>
-      <button class="btn btn-sm btn-primary" id="btn-scan-all">🔄 Scan All Now</button>
+      <button class="btn btn-sm" id="btn-audio-toggle">Sound: ON</button>
+      <button class="btn btn-sm btn-primary" id="btn-scan-all">Scan All Now</button>
     </div>
   </header>
 
@@ -54,12 +74,12 @@
       </div>
 
       <div class="filter-bar">
-        <input type="text" id="cam-search" class="search-input" placeholder="🔍 Search camera, IP, NVR, location, channel...">
+        <input type="text" id="cam-search" class="search-input" placeholder="Filter by name, IP, NVR, location, channel...">
         
         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
           <select id="filter-status" class="filter-select">
             <option value="ALL">All Statuses</option>
-            <option value="PROBLEMS">⚠️ Outages & Warnings Only</option>
+            <option value="PROBLEMS">Outages & Warnings Only</option>
             <option value="OFFLINE">Offline Only</option>
             <option value="WARNING">Warning Only</option>
             <option value="ONLINE">Online Only</option>
@@ -69,8 +89,8 @@
             <option value="ALL">All NVRs / DVRs</option>
           </select>
 
-          <button class="btn btn-sm" id="btn-expand-all">📂 Expand All</button>
-          <button class="btn btn-sm" id="btn-collapse-all">📁 Collapse All</button>
+          <button class="btn btn-sm" id="btn-expand-all">Expand All</button>
+          <button class="btn btn-sm" id="btn-collapse-all">Collapse All</button>
         </div>
       </div>
 
@@ -139,11 +159,11 @@
     <!-- TAB 2: INCIDENTS -->
     <div id="tab-incidents" class="tab-pane">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3>Active & Historical Incidents</h3>
-        <button class="btn btn-sm" id="btn-refresh-incidents">🔄 Refresh</button>
+        <h3 style="font-size: 1.15rem; font-weight: 700;">Active & Historical Incidents</h3>
+        <button class="btn btn-sm" id="btn-refresh-incidents">Refresh</button>
       </div>
 
-      <h4 style="margin-bottom: 0.5rem; color: var(--offline);">🔴 Current Active Outages</h4>
+      <h4 style="margin-bottom: 0.5rem; color: var(--status-offline); font-size: 0.95rem; font-weight: 600;">Active Outages</h4>
       <div class="table-responsive" style="margin-bottom: 1.5rem;">
         <table>
           <thead>
@@ -158,12 +178,12 @@
             </tr>
           </thead>
           <tbody id="active-incidents-body">
-            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No active outages. All cameras healthy!</td></tr>
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No active outages. All cameras healthy.</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h4 style="margin-bottom: 0.5rem; color: var(--text-muted);">📜 Incident History (Last 100)</h4>
+      <h4 style="margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.95rem; font-weight: 600;">Incident History (Last 100)</h4>
       <div class="table-responsive">
         <table>
           <thead>
@@ -223,11 +243,11 @@
         </p>
 
         <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-          <a href="/api/cameras/csv/template" class="btn" download>📥 Download CSV Template</a>
-          <a href="/api/cameras/csv/export" class="btn" download>📤 Export Current Cameras</a>
+          <a href="/api/cameras/csv/template" class="btn" download>Download CSV Template</a>
+          <a href="/api/cameras/csv/export" class="btn" download>Export Current Cameras</a>
         </div>
 
-        <hr style="border: 0; border-top: 1px solid var(--border); margin-bottom: 1.5rem;">
+        <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin-bottom: 1.5rem;">
 
         <h4 style="margin-bottom: 0.5rem;">Import Cameras from CSV</h4>
         <input type="file" id="csv-file-input" accept=".csv" style="margin-bottom: 1rem;">
@@ -278,7 +298,7 @@
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
           Generate 270 realistic cameras across 10 NVRs to test UI speed, multi-filters, and simulated outages offline.
         </p>
-        <button class="btn btn-primary" id="btn-seed-270">⚡ Populate 270 Mock Cameras</button>
+        <button class="btn btn-primary" id="btn-seed-270">Populate 270 Mock Cameras</button>
       </div>
     </div>
   </main>

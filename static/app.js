@@ -42,11 +42,16 @@ function showToast(title, message, isOutage = true) {
   const container = document.getElementById("toast-container");
   const toast = document.createElement("div");
   toast.className = `toast ${isOutage ? 'down' : 'up'}`;
+  
+  const iconSvg = isOutage 
+    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-offline)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`
+    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-online)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+
   toast.innerHTML = `
-    <span style="font-size: 1.2rem;">${isOutage ? '🚨' : '✅'}</span>
+    <span style="display: flex; align-items: center;">${iconSvg}</span>
     <div>
       <div style="font-weight: 600;">${title}</div>
-      <div style="font-size: 0.78rem; opacity: 0.85;">${message}</div>
+      <div style="font-size: 0.76rem; color: var(--text-muted);">${message}</div>
     </div>
   `;
   container.appendChild(toast);
@@ -213,7 +218,7 @@ function renderNvrGroupedTables() {
             ${c.status === 'ONLINE' ? 'Healthy' : (c.last_error || 'Outage')}
           </td>
           <td style="text-align: right; white-space: nowrap;">
-            <button class="btn btn-sm" onclick="checkCamera(${c.id})">🔍 Check</button>
+            <button class="btn btn-sm" onclick="checkCamera(${c.id})">Check</button>
           </td>
         </tr>
       `;
@@ -230,9 +235,9 @@ function renderNvrGroupedTables() {
 
           <div class="nvr-badges">
             <span style="color: var(--text-muted); margin-right: 0.4rem;">${totalInGroup} Cams:</span>
-            <span class="badge online">🟢 ${onlineInGroup}</span>
-            ${warningInGroup > 0 ? `<span class="badge warning">🟡 ${warningInGroup}</span>` : ''}
-            ${offlineInGroup > 0 ? `<span class="badge offline">🔴 ${offlineInGroup}</span>` : ''}
+            <span class="badge online">${onlineInGroup} Online</span>
+            ${warningInGroup > 0 ? `<span class="badge warning">${warningInGroup} Warning</span>` : ''}
+            ${offlineInGroup > 0 ? `<span class="badge offline">${offlineInGroup} Offline</span>` : ''}
           </div>
         </div>
 
@@ -393,20 +398,20 @@ function renderVisuals() {
   const latContainer = document.getElementById("latency-distribution");
   latContainer.innerHTML = `
     <div class="latency-tile">
-      <div class="val" style="color: var(--online);">${fast}</div>
-      <div class="lbl">⚡ Fast (&lt;50ms)</div>
+      <div class="val" style="color: var(--status-online);">${fast}</div>
+      <div class="lbl">Fast (&lt;50ms)</div>
     </div>
     <div class="latency-tile">
       <div class="val" style="color: #60a5fa;">${normal}</div>
-      <div class="lbl">🟢 Normal (50-200ms)</div>
+      <div class="lbl">Normal (50-200ms)</div>
     </div>
     <div class="latency-tile">
-      <div class="val" style="color: var(--warning);">${slow}</div>
-      <div class="lbl">🟡 Slow (&gt;200ms)</div>
+      <div class="val" style="color: var(--status-warning);">${slow}</div>
+      <div class="lbl">Slow (&gt;200ms)</div>
     </div>
     <div class="latency-tile">
-      <div class="val" style="color: var(--offline);">${down}</div>
-      <div class="lbl">🔴 Unreachable</div>
+      <div class="val" style="color: var(--status-offline);">${down}</div>
+      <div class="lbl">Unreachable</div>
     </div>
   `;
 
