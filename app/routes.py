@@ -202,6 +202,46 @@ def setup_routes(app):
             "consecutive_failures": res.consecutive_failures
         }
 
+    @router.post("/cameras/{camera_id}/snapshot")
+    async def capture_camera_snapshot(camera_id: int):
+        from app.scanner import grab_rtsp_snapshot
+        import os, time
+        cam = await cam_repo.get_by_id(camera_id)
+        if not cam:
+            raise HTTPException(status_code=404, detail="Camera not found")
+
+        rtsp_url = cam["rtsp_url"]
+        snapshot_dir = os.path.join("static", "snapshots")
+        os.makedirs(snapshot_dir, exist_ok=True)
+        filename = f"cam_{camera_id}.jpg"
+        filepath = os.path.join(snapshot_dir, filename)
+
+        success, err, intensity = await grab_rtsp_snapshot(rtsp_url, filepath, timeout_sec=5, max_width=720)
+        if not success:
+            raise HTTPException(status_code=502, detail=f"Failed to capture snapshot: {err or 'Stream unavailable'}")
+
+        # Update thumbnail_path in DB
+        await cam_repo.update_status(
+            camera_id=camera_id,
+            status=cam.get("status") or "ONLINE",
+            consecutive_failures=cam.get("consecutive_failures") or 0,
+            latency_ms=cam.get("latency_ms") or 0.0,
+            last_error=None,
+            thumbnail_path=f"/static/snapshots/{filename}"
+        )
+
+        return {
+            "camera_id": camera_id,
+            "camera_name": cam["name"],
+            "dvr_nvr_name": cam.get("dvr_nvr_name"),
+            "location": cam.get("location"),
+            "channel_no": cam.get("channel_no"),
+            "image_url": f"/static/snapshots/{filename}?t={int(time.time() * 1000)}",
+            "mean_intensity": intensity,
+            "captured_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+
     @router.post("/cameras/scan-all")
     async def scan_all_cameras(background_tasks: BackgroundTasks):
         """

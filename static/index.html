@@ -377,6 +377,26 @@
     </div>
   </div>
 
+  <!-- Snapshot Preview Modal -->
+  <div id="snapshot-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 760px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        <div>
+          <h3 id="snapshot-title" style="margin: 0; font-size: 1.05rem; font-weight: 700;">Live Camera Snapshot</h3>
+          <div id="snapshot-subtitle" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;"></div>
+        </div>
+        <button class="btn btn-sm" id="btn-close-snapshot">✕</button>
+      </div>
+      <div id="snapshot-body" style="overflow-y: auto; flex: 1; text-align: center; padding: 0.5rem 0;">
+        <!-- Image rendered here -->
+      </div>
+      <div id="snapshot-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.75rem; margin-top: 0.5rem; font-size: 0.78rem; color: var(--text-muted);">
+        <span id="snapshot-meta">Inspect OSD camera name (bottom-left) and timestamp (top-right)</span>
+        <button class="btn btn-sm" id="btn-refresh-snapshot">Retake Snapshot</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 

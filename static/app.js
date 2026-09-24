@@ -265,8 +265,16 @@ function renderNvrGroupedTables() {
       }
 
       const actionButtons = c.is_no_cam ? `
+        <button class="btn btn-sm" onclick="takeSnapshot(${c.id})" title="Capture live snapshot to verify camera view and OSD name" style="margin-right: 3px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Snap
+        </button>
         <button class="btn btn-sm" style="color: #60a5fa; font-size: 0.72rem; padding: 0.15rem 0.45rem;" onclick="toggleNoCam(${c.id})" title="Restore to active camera monitoring">Unmark</button>
       ` : `
+        <button class="btn btn-sm" onclick="takeSnapshot(${c.id})" title="Capture live snapshot to verify camera view and OSD name" style="margin-right: 3px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Snap
+        </button>
         <button class="btn btn-sm" onclick="checkCamera(${c.id})">Check</button>
         <button class="btn btn-sm" style="color: var(--text-muted); font-size: 0.72rem; padding: 0.15rem 0.45rem; margin-left: 3px;" onclick="toggleNoCam(${c.id})" title="Mark as empty/spare channel and hide from dashboard">No Cam</button>
       `;
@@ -647,6 +655,7 @@ function renderInventoryTable() {
         }
       </td>
       <td style="white-space: nowrap; text-align: right;">
+        <button class="btn btn-sm" onclick="takeSnapshot(${c.id})" title="Capture live snapshot" style="margin-right: 4px;">Snap</button>
         <button class="btn btn-sm" onclick="editCamera(${c.id})">Edit</button>
         <button class="btn btn-sm" style="color: ${c.is_no_cam ? '#60a5fa' : 'var(--text-muted)'}; margin-left: 4px;" onclick="toggleNoCam(${c.id})" title="${c.is_no_cam ? 'Restore to active' : 'Mark as spare'}">
           ${c.is_no_cam ? 'Unmark' : 'No Cam'}
@@ -962,4 +971,73 @@ function renderNvrAuditResults(data) {
     </table>
   `;
 }
+
+// Snapshot Preview Modal Logic
+const snapshotModal = document.getElementById("snapshot-modal");
+const btnCloseSnapshot = document.getElementById("btn-close-snapshot");
+const btnRefreshSnapshot = document.getElementById("btn-refresh-snapshot");
+let currentSnapshotCamId = null;
+
+if (btnCloseSnapshot) {
+  btnCloseSnapshot.addEventListener("click", () => {
+    snapshotModal.classList.remove("active");
+  });
+}
+
+if (btnRefreshSnapshot) {
+  btnRefreshSnapshot.addEventListener("click", () => {
+    if (currentSnapshotCamId) takeSnapshot(currentSnapshotCamId);
+  });
+}
+
+window.takeSnapshot = async function(id) {
+  currentSnapshotCamId = id;
+  snapshotModal.classList.add("active");
+
+  const title = document.getElementById("snapshot-title");
+  const subtitle = document.getElementById("snapshot-subtitle");
+  const body = document.getElementById("snapshot-body");
+  const meta = document.getElementById("snapshot-meta");
+
+  const cam = cameras.find(c => c.id === id) || { name: `Camera #${id}`, location: "" };
+  title.textContent = `Snapshot: ${cam.name}`;
+  subtitle.textContent = `Connecting to stream and capturing live frame...`;
+  body.innerHTML = `
+    <div style="padding: 3rem 1rem;">
+      <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--status-online); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
+      <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.3rem;">Capturing Live Frame...</div>
+      <div style="color: var(--text-muted); font-size: 0.8rem;">Decoding single JPEG from RTSP feed to verify physical view and OSD timestamp</div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`/api/cameras/${id}/snapshot`, { method: "POST" });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Failed to capture snapshot");
+    }
+    const data = await res.json();
+    subtitle.innerHTML = `NVR: <strong>${data.dvr_nvr_name || 'N/A'}</strong> • Channel: <strong>Ch ${data.channel_no || '---'}</strong> • Location: <strong>${data.location || 'N/A'}</strong>`;
+    body.innerHTML = `
+      <div style="position: relative; display: inline-block; max-width: 100%;">
+        <img src="${data.image_url}" alt="Snapshot of ${data.camera_name}" style="max-width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border-active); box-shadow: 0 4px 20px rgba(0,0,0,0.5); display: block;" />
+        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem; padding: 0 0.2rem;">
+          <span>↙ OSD Camera Name in bottom-left</span>
+          <span>Captured at ${data.captured_at}</span>
+          <span>OSD Timestamp in top-right ↗</span>
+        </div>
+      </div>
+    `;
+    meta.textContent = `Mean Brightness: ${Math.round(data.mean_intensity || 0)} / 255 • Resolution: 720p`;
+  } catch (err) {
+    body.innerHTML = `
+      <div style="padding: 2.5rem 1rem; color: var(--status-offline);">
+        <div style="font-weight: 700; margin-bottom: 0.5rem; font-size: 1rem;">Snapshot Capture Failed</div>
+        <div style="font-size: 0.82rem; color: var(--text-secondary); font-family: monospace; max-width: 520px; margin: 0 auto;">${escapeHtml(err.message)}</div>
+      </div>
+    `;
+    subtitle.textContent = "Error capturing stream";
+  }
+};
+
 

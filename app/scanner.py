@@ -70,12 +70,11 @@ async def check_tcp_liveness(host: str, port: int = 554, timeout_ms: int = 3000)
         return False, 0.0, f"Error: {str(e)}"
 
 
-def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 4) -> Tuple[bool, Optional[str], Optional[float]]:
+def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 4, max_width: int = 720) -> Tuple[bool, Optional[str], Optional[float]]:
     """
-    Captures a single frame from an RTSP stream, saves a thumbnail,
+    Captures a single frame from an RTSP stream, saves a snapshot,
     and returns (success, error_msg, mean_pixel_intensity).
     """
-    # Force ffmpeg backend with timeout in milliseconds if supported by OpenCV
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = f"rtsp_transport;tcp|stimeout;{timeout_sec * 1000000}"
     cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
     if not cap.isOpened():
@@ -90,15 +89,18 @@ def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 4) -
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         mean_intensity = float(np.mean(gray))
 
-        # Save thumbnail (resized to width 320 for light storage)
+        # Save snapshot resized to max_width for crisp OSD text without bloat
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         h, w = frame.shape[:2]
-        aspect = h / w
-        thumb_w = 320
-        thumb_h = int(thumb_w * aspect)
-        thumbnail = cv2.resize(frame, (thumb_w, thumb_h), interpolation=cv2.INTER_AREA)
-        cv2.imwrite(output_path, thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 75])
+        if w > max_width:
+            aspect = h / w
+            thumb_w = max_width
+            thumb_h = int(thumb_w * aspect)
+            frame_to_save = cv2.resize(frame, (thumb_w, thumb_h), interpolation=cv2.INTER_AREA)
+        else:
+            frame_to_save = frame
 
+        cv2.imwrite(output_path, frame_to_save, [cv2.IMWRITE_JPEG_QUALITY, 85])
         return True, None, mean_intensity
     except Exception as e:
         return False, f"Frame decode error: {str(e)}", None
@@ -106,13 +108,13 @@ def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 4) -
         cap.release()
 
 
-async def grab_rtsp_snapshot(rtsp_url: str, output_path: str, timeout_sec: int = 4) -> Tuple[bool, Optional[str], Optional[float]]:
+async def grab_rtsp_snapshot(rtsp_url: str, output_path: str, timeout_sec: int = 4, max_width: int = 720) -> Tuple[bool, Optional[str], Optional[float]]:
     """
     Async wrapper for grabbing an RTSP frame in a worker thread.
     """
     try:
         return await asyncio.wait_for(
-            asyncio.to_thread(_sync_capture_frame, rtsp_url, output_path, timeout_sec),
+            asyncio.to_thread(_sync_capture_frame, rtsp_url, output_path, timeout_sec, max_width),
             timeout=timeout_sec + 2
         )
     except asyncio.TimeoutError:
