@@ -255,6 +255,10 @@ function renderNvrGroupedTables() {
             <span class="badge online">${onlineInGroup} Online</span>
             ${warningInGroup > 0 ? `<span class="badge warning">${warningInGroup} Warning</span>` : ''}
             ${offlineInGroup > 0 ? `<span class="badge offline">${offlineInGroup} Offline</span>` : ''}
+            <button class="btn btn-sm" style="margin-left: 0.5rem; padding: 0.2rem 0.55rem; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 0.35rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-active);" onclick="event.stopPropagation(); auditNvrChannels('${escapeHtml(groupName)}')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="12 6 12 12 16 14"/></svg>
+              Scan Ports
+            </button>
           </div>
         </div>
 
@@ -748,3 +752,137 @@ window.addEventListener("DOMContentLoaded", () => {
   loadCameras();
   connectSSE();
 });
+
+// NVR Port Diagnostics Modal Logic
+const nvrAuditModal = document.getElementById("nvr-audit-modal");
+const btnCloseNvrAudit = document.getElementById("btn-close-nvr-audit");
+
+if (btnCloseNvrAudit) {
+  btnCloseNvrAudit.addEventListener("click", () => {
+    nvrAuditModal.classList.remove("active");
+  });
+}
+
+window.auditNvrChannels = async function(nvrName) {
+  nvrAuditModal.classList.add("active");
+  const title = document.getElementById("nvr-audit-title");
+  const subtitle = document.getElementById("nvr-audit-subtitle");
+  const content = document.getElementById("nvr-audit-content");
+
+  title.textContent = `Diagnostic Port Audit: ${nvrName}`;
+  subtitle.textContent = "Connecting via RTSP DESCRIBE (Digest Auth)...";
+  content.innerHTML = `
+    <div style="text-align: center; padding: 3rem 1rem;">
+      <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--status-online); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
+      <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.3rem;">Sweeping NVR Ports via RTSP DESCRIBE...</div>
+      <div style="color: var(--text-muted); font-size: 0.8rem; max-width: 480px; margin: 0 auto;">
+        Testing each physical channel for active video stream headers. Throttled to 2 concurrent requests to maintain zero NVR CPU load.
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`/api/nvrs/${encodeURIComponent(nvrName)}/audit-channels`, {
+      method: "POST"
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Diagnostic audit request failed");
+    }
+    const data = await res.json();
+    renderNvrAuditResults(data);
+  } catch (err) {
+    content.innerHTML = `
+      <div style="padding: 2rem; text-align: center; color: var(--status-offline);">
+        <div style="font-weight: 600; margin-bottom: 0.5rem;">Diagnostic Probe Failed</div>
+        <div style="font-size: 0.82rem; color: var(--text-secondary); font-family: monospace;">${escapeHtml(err.message)}</div>
+      </div>
+    `;
+  }
+};
+
+function renderNvrAuditResults(data) {
+  const subtitle = document.getElementById("nvr-audit-subtitle");
+  const content = document.getElementById("nvr-audit-content");
+
+  subtitle.innerHTML = `
+    Host: <strong style="color: var(--text-primary);">${data.ip_address}:${data.port}</strong> • 
+    Total Hardware Ports: <strong style="color: var(--text-primary);">${data.total_channels}</strong>
+  `;
+
+  const rows = data.channels.map(ch => {
+    let statusBadge = "";
+    let rowBg = "";
+    if (ch.status === "STREAMING") {
+      statusBadge = `<span class="badge online">Streaming (200 OK)</span>`;
+    } else if (ch.status === "EMPTY") {
+      statusBadge = `<span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Empty (404)</span>`;
+    } else {
+      statusBadge = `<span class="badge offline">${escapeHtml(ch.status)}</span>`;
+    }
+
+    let discrepancy = "";
+    if (ch.is_configured && ch.status === "EMPTY") {
+      discrepancy = `<div style="color: var(--status-warning); font-size: 0.72rem; margin-top: 2px;">⚠️ Configured in system, but hardware port returned 404 (camera dead or unplugged)</div>`;
+      rowBg = "background: rgba(245, 158, 11, 0.04);";
+    } else if (!ch.is_configured && ch.status === "STREAMING") {
+      discrepancy = `<div style="color: #60a5fa; font-size: 0.72rem; margin-top: 2px;">💡 Active camera detected streaming on unconfigured channel</div>`;
+      rowBg = "background: rgba(96, 165, 250, 0.04);";
+    }
+
+    const codecText = ch.codec && ch.codec !== "Unknown" ? `${ch.codec} ${ch.fps ? '@ ' + ch.fps + 'fps' : ''}` : '---';
+
+    return `
+      <tr style="${rowBg}">
+        <td style="font-weight: 700; font-family: monospace; font-size: 0.85rem;">Ch ${ch.channel < 10 ? '0' + ch.channel : ch.channel}</td>
+        <td>${statusBadge}</td>
+        <td style="font-size: 0.8rem; font-family: monospace; color: var(--text-secondary);">${codecText}</td>
+        <td style="font-size: 0.8rem;">${ch.latency_ms > 0 ? ch.latency_ms + 'ms' : '---'}</td>
+        <td>
+          <div style="font-weight: 600; font-size: 0.82rem;">${escapeHtml(ch.camera_name || 'Unassigned Port')}</div>
+          ${ch.location ? `<div style="font-size: 0.72rem; color: var(--text-muted);">${escapeHtml(ch.location)}</div>` : ''}
+          ${discrepancy}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  content.innerHTML = `
+    <!-- Top Summary Metric Cards -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+      <div class="stat-card" style="padding: 0.75rem;">
+        <div style="font-size: 0.72rem; color: var(--text-muted);">Hardware Ports</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">${data.total_channels}</div>
+      </div>
+      <div class="stat-card" style="padding: 0.75rem;">
+        <div style="font-size: 0.72rem; color: var(--text-muted);">Configured Cams</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">${data.configured_channels}</div>
+      </div>
+      <div class="stat-card" style="padding: 0.75rem;">
+        <div style="font-size: 0.72rem; color: var(--text-muted);">Active Streaming</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: var(--status-online);">${data.detected_streaming}</div>
+      </div>
+      <div class="stat-card" style="padding: 0.75rem;">
+        <div style="font-size: 0.72rem; color: var(--text-muted);">Empty / Free Ports</div>
+        <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-muted);">${data.detected_empty}</div>
+      </div>
+    </div>
+
+    <!-- Diagnostic Channel Table -->
+    <table class="compact-table" style="font-size: 0.8rem;">
+      <thead>
+        <tr>
+          <th style="width: 70px;">Port</th>
+          <th style="width: 140px;">RTSP Status</th>
+          <th style="width: 140px;">Codec & FPS</th>
+          <th style="width: 80px;">Latency</th>
+          <th>Configured Camera & Diagnostic Findings</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+

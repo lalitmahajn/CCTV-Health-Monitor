@@ -1,8 +1,10 @@
 import asyncio
 import time
 import os
+import re
+import hashlib
 from contextlib import asynccontextmanager
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional, Dict, Any, List
 import cv2
 import numpy as np
 
@@ -117,3 +119,164 @@ async def grab_rtsp_snapshot(rtsp_url: str, output_path: str, timeout_sec: int =
         return False, f"RTSP frame grab timed out after {timeout_sec}s", None
     except Exception as e:
         return False, f"Worker error: {str(e)}", None
+
+
+async def probe_rtsp_describe(
+    host: str,
+    port: int,
+    channel: int,
+    user: str = "",
+    pwd: str = "",
+    path_template: str = "/cam/realmonitor?channel={channel}&subtype=0",
+    timeout_sec: float = 3.0
+) -> Dict[str, Any]:
+    """
+    Sends an RTSP DESCRIBE request to verify whether a specific channel
+    is actively generating a video stream, without decoding any frames.
+    """
+    t0 = time.perf_counter()
+    clean_path = path_template.format(channel=channel)
+    url = f"rtsp://{host}:{port}{clean_path}"
+
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout_sec
+        )
+
+        req1 = (
+            f"DESCRIBE {url} RTSP/1.0\r\n"
+            f"CSeq: 1\r\n"
+            f"User-Agent: CCTV-Health-Monitor\r\n"
+            f"Accept: application/sdp\r\n\r\n"
+        )
+        writer.write(req1.encode())
+        await writer.drain()
+
+        data1 = await asyncio.wait_for(reader.read(4096), timeout=timeout_sec)
+        resp1 = data1.decode("utf-8", errors="ignore")
+
+        final_resp = resp1
+        if "200 OK" not in resp1 and "WWW-Authenticate" in resp1:
+            auth_match = re.search(r'WWW-Authenticate:\s*Digest\s+(.+)', resp1, re.IGNORECASE)
+            if auth_match and user and pwd:
+                params = dict(re.findall(r'(\w+)="([^"]+)"', auth_match.group(1)))
+                realm = params.get("realm", "")
+                nonce = params.get("nonce", "")
+
+                ha1 = hashlib.md5(f"{user}:{realm}:{pwd}".encode()).hexdigest()
+                ha2 = hashlib.md5(f"DESCRIBE:{url}".encode()).hexdigest()
+                response = hashlib.md5(f"{ha1}:{nonce}:{ha2}".encode()).hexdigest()
+
+                auth_hdr = f'Digest username="{user}", realm="{realm}", nonce="{nonce}", uri="{url}", response="{response}"'
+                req2 = (
+                    f"DESCRIBE {url} RTSP/1.0\r\n"
+                    f"CSeq: 2\r\n"
+                    f"User-Agent: CCTV-Health-Monitor\r\n"
+                    f"Authorization: {auth_hdr}\r\n"
+                    f"Accept: application/sdp\r\n\r\n"
+                )
+                writer.write(req2.encode())
+                await writer.drain()
+
+                data2 = await asyncio.wait_for(reader.read(4096), timeout=timeout_sec)
+                final_resp = data2.decode("utf-8", errors="ignore")
+
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
+
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+        if "200 OK" in final_resp:
+            codec_match = re.search(r'a=rtpmap:\d+\s+([A-Za-z0-9\-]+)', final_resp)
+            codec = codec_match.group(1) if codec_match else "H.264"
+            fps_match = re.search(r'a=framerate:([0-9.]+)', final_resp)
+            fps = float(fps_match.group(1)) if fps_match else None
+
+            return {
+                "channel": channel,
+                "status": "STREAMING",
+                "status_code": 200,
+                "codec": codec,
+                "fps": fps,
+                "latency_ms": elapsed_ms,
+                "message": "Stream active and verified"
+            }
+        elif "404 Not Found" in final_resp:
+            return {
+                "channel": channel,
+                "status": "EMPTY",
+                "status_code": 404,
+                "latency_ms": elapsed_ms,
+                "message": "No camera connected or port unused"
+            }
+        elif "401" in final_resp:
+            return {
+                "channel": channel,
+                "status": "AUTH_FAILED",
+                "status_code": 401,
+                "latency_ms": elapsed_ms,
+                "message": "Authentication required or invalid password"
+            }
+        else:
+            first_line = final_resp.split("\r\n")[0] if final_resp else "No response"
+            return {
+                "channel": channel,
+                "status": "INACTIVE",
+                "status_code": 0,
+                "latency_ms": elapsed_ms,
+                "message": first_line
+            }
+
+    except asyncio.TimeoutError:
+        return {
+            "channel": channel,
+            "status": "TIMEOUT",
+            "status_code": 0,
+            "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
+            "message": f"Connection timed out after {timeout_sec}s"
+        }
+    except Exception as e:
+        return {
+            "channel": channel,
+            "status": "ERROR",
+            "status_code": 0,
+            "latency_ms": 0.0,
+            "message": str(e)
+        }
+
+
+async def scan_nvr_channels(
+    host: str,
+    port: int,
+    user: str,
+    pwd: str,
+    total_channels: int = 16,
+    path_template: str = "/cam/realmonitor?channel={channel}&subtype=0",
+    max_concurrent: int = 2,
+    timeout_sec: float = 2.5
+) -> List[Dict[str, Any]]:
+    """
+    Sweeps channels 1 to total_channels with bounded concurrency (default 2)
+    to prevent overloading the NVR CPU.
+    """
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def _probe_with_sem(ch: int):
+        async with sem:
+            return await probe_rtsp_describe(
+                host=host,
+                port=port,
+                channel=ch,
+                user=user,
+                pwd=pwd,
+                path_template=path_template,
+                timeout_sec=timeout_sec
+            )
+
+    tasks = [_probe_with_sem(ch) for ch in range(1, total_channels + 1)]
+    return await asyncio.gather(*tasks)
+

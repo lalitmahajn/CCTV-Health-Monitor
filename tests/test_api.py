@@ -45,3 +45,12 @@ async def test_api_camera_endpoints(tmp_path):
         res_seed = await client.post("/api/simulator/seed-270")
         assert res_seed.status_code == 200
         assert res_seed.json()["count"] == 270
+
+        # NVR List
+        res_nvrs = await client.get("/api/nvrs")
+        assert res_nvrs.status_code == 200
+
+        # NVR Audit on 404 NVR
+        res_audit_404 = await client.post("/api/nvrs/NonExistentNVR/audit-channels")
+        assert res_audit_404.status_code == 404
+

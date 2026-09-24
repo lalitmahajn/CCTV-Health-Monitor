@@ -44,6 +44,92 @@ def setup_routes(app):
     async def get_nvrs():
         return await nvr_repo.get_all()
 
+    @router.post("/nvrs/{nvr_name}/audit-channels")
+    async def audit_nvr_channels(nvr_name: str):
+        from app.scanner import scan_nvr_channels
+        import re
+        nvrs = await nvr_repo.get_all()
+        matched = next((n for n in nvrs if n["name"].lower() == nvr_name.lower()), None)
+        if not matched:
+            raise HTTPException(status_code=404, detail="NVR not found")
+
+        cameras = await cam_repo.get_all()
+        nvr_cams = [c for c in cameras if c.get("dvr_nvr_name", "").lower() == nvr_name.lower()]
+
+        # Extract credentials and path pattern from existing camera if available
+        user = "arechs_cctv"
+        pwd = "scpl@2026"
+        path_template = "/cam/realmonitor?channel={channel}&subtype=0"
+
+        for c in nvr_cams:
+            raw_url = c.get("rtsp_url", "")
+            m = re.match(r"^rtsp://([^:]+):(.*)@([^@:/]+)(?::(\d+))?(/.*)$", raw_url)
+            if m:
+                user = m.group(1)
+                pwd = m.group(2)
+                raw_path = m.group(5)
+                path_template = re.sub(r'channel=\d+', 'channel={channel}', raw_path)
+                break
+
+        total_ch = matched.get("total_channels") or 16
+        if total_ch <= 0:
+            total_ch = 16
+
+        results = await scan_nvr_channels(
+            host=matched["ip_address"],
+            port=matched["port"] or 554,
+            user=user,
+            pwd=pwd,
+            total_channels=total_ch,
+            path_template=path_template,
+            max_concurrent=2,
+            timeout_sec=2.5
+        )
+
+        channel_cam_map = {}
+        for c in nvr_cams:
+            ch_str = str(c.get("channel_no", "")).strip()
+            if ch_str.isdigit():
+                channel_cam_map[int(ch_str)] = c
+
+        active_count = 0
+        empty_count = 0
+        channel_details = []
+
+        for r in results:
+            ch_num = r["channel"]
+            cfg_cam = channel_cam_map.get(ch_num)
+            if r["status"] == "STREAMING":
+                active_count += 1
+            elif r["status"] == "EMPTY":
+                empty_count += 1
+
+            channel_details.append({
+                "channel": ch_num,
+                "status": r["status"],
+                "status_code": r.get("status_code", 0),
+                "codec": r.get("codec"),
+                "fps": r.get("fps"),
+                "latency_ms": r.get("latency_ms", 0.0),
+                "message": r.get("message", ""),
+                "camera_id": cfg_cam["id"] if cfg_cam else None,
+                "camera_name": cfg_cam["name"] if cfg_cam else None,
+                "location": cfg_cam["location"] if cfg_cam else None,
+                "is_configured": cfg_cam is not None
+            })
+
+        return {
+            "nvr_name": matched["name"],
+            "ip_address": matched["ip_address"],
+            "port": matched["port"],
+            "total_channels": total_ch,
+            "configured_channels": len(nvr_cams),
+            "detected_streaming": active_count,
+            "detected_empty": empty_count,
+            "channels": channel_details
+        }
+
+
     @router.get("/cameras")
     async def get_cameras(enabled_only: bool = False):
         return await cam_repo.get_all(enabled_only=enabled_only)

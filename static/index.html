@@ -350,6 +350,22 @@
     </div>
   </div>
 
+  <!-- NVR Channel Audit Modal -->
+  <div id="nvr-audit-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 820px; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        <div>
+          <h3 id="nvr-audit-title" style="margin: 0; font-size: 1.05rem; font-weight: 700;">NVR Port & Channel Diagnostics</h3>
+          <div id="nvr-audit-subtitle" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Live RTSP DESCRIBE probe</div>
+        </div>
+        <button class="btn btn-sm" id="btn-close-nvr-audit">✕</button>
+      </div>
+      <div id="nvr-audit-content" style="overflow-y: auto; flex: 1; min-height: 260px;">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 
