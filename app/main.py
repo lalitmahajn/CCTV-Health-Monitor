@@ -43,7 +43,7 @@ def create_app(db_path: str = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await init_db(app_db)
-        # Background engine can be started here or optionally controlled
+        await engine.start()
         yield
         await engine.stop()
 

@@ -458,12 +458,24 @@ document.getElementById("btn-scan-all").addEventListener("click", async () => {
   const btn = document.getElementById("btn-scan-all");
   btn.disabled = true;
   btn.textContent = "Scanning...";
-  for (const c of cameras.slice(0, 10)) { // quick sample scan
-    await fetch(`/api/cameras/${c.id}/check`, { method: "POST" });
+  try {
+    await fetch("/api/cameras/scan-all", { method: "POST" });
+    showToast("Scan Started", "Scanning all 266 cameras across all NVRs in background...", false);
+    // Poll updates every 2 seconds for a few moments
+    let count = 0;
+    const interval = setInterval(() => {
+      loadCameras();
+      count++;
+      if (count > 5) clearInterval(interval);
+    }, 2000);
+  } catch (e) {
+    console.error("Scan all failed", e);
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = "Scan All Now";
+    }, 4000);
   }
-  btn.disabled = false;
-  btn.textContent = "🔄 Scan All Now";
-  loadCameras();
 });
 
 // Incidents

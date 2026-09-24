@@ -1,12 +1,10 @@
 import json
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, UploadFile, File, Response
+from fastapi import APIRouter, HTTPException, UploadFile, File, Response, BackgroundTasks
 from pydantic import BaseModel
 from app.models import CameraRepository, IncidentRepository, SettingsRepository
 from app.csv_utils import parse_and_validate_csv, generate_csv_template, export_cameras_to_csv
 from app.simulator import seed_270_cameras
-
-router = APIRouter()
 
 class CameraCreate(BaseModel):
     name: str
@@ -31,13 +29,6 @@ class CameraUpdate(BaseModel):
 class OutageSimulate(BaseModel):
     camera_id: int
     error_reason: Optional[str] = "Simulated Connection Timeout"
-
-def get_repos(app):
-    return (
-        CameraRepository(app.state.db_path),
-        IncidentRepository(app.state.db_path),
-        SettingsRepository(app.state.db_path)
-    )
 
 def setup_routes(app):
     router = APIRouter()
@@ -97,6 +88,20 @@ def setup_routes(app):
             "message": res.message,
             "consecutive_failures": res.consecutive_failures
         }
+
+    @router.post("/cameras/scan-all")
+    async def scan_all_cameras(background_tasks: BackgroundTasks):
+        """
+        Triggers a full scan of all 266 cameras concurrently using the per-host throttler.
+        """
+        async def _run_full_scan():
+            cameras = await cam_repo.get_all(enabled_only=True)
+            tasks = [engine.check_single_camera(c["id"]) for c in cameras]
+            import asyncio
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        background_tasks.add_task(_run_full_scan)
+        return {"message": "Full fleet scan started in background"}
 
     # --- CSV Import & Export ---
 
