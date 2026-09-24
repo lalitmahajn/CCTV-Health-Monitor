@@ -295,17 +295,55 @@ document.getElementById("filter-nvr").addEventListener("change", renderNvrGroupe
 function renderVisuals() {
   if (!cameras || cameras.length === 0) return;
 
-  // 1. Heatmap Matrix
+  // 1. Group cameras by NVR for Rack Bay Heatmap
+  const nvrMap = {};
+  cameras.forEach(cam => {
+    const nvr = cam.dvr_nvr_name || "Direct IP / Unassigned";
+    if (!nvrMap[nvr]) {
+      nvrMap[nvr] = {
+        name: nvr,
+        ip: cam.ip_address,
+        cameras: []
+      };
+    }
+    nvrMap[nvr].cameras.push(cam);
+  });
+
+  const sortedNvrKeys = Object.keys(nvrMap).sort();
   const heatmapGrid = document.getElementById("heatmap-grid");
-  heatmapGrid.innerHTML = cameras.map((c, i) => {
-    const status = c.status || 'UNKNOWN';
-    const ch = c.channel_no ? c.channel_no : (i + 1);
-    const title = `${c.name || 'Cam'} (Ch ${ch})\nNVR: ${c.dvr_nvr_name || 'N/A'}\nStatus: ${status}\nIP: ${c.ip_address}\nLatency: ${c.latency_ms || 0}ms`;
+
+  heatmapGrid.innerHTML = sortedNvrKeys.map(nvrKey => {
+    const bay = nvrMap[nvrKey];
+    const total = bay.cameras.length;
+    const online = bay.cameras.filter(c => c.status === "ONLINE").length;
+    const offline = bay.cameras.filter(c => c.status === "OFFLINE").length;
+    const warning = bay.cameras.filter(c => c.status === "WARNING").length;
+
+    let bayClass = "rack-bay";
+    if (offline > 0) bayClass += " has-offline";
+
+    const tilesHtml = bay.cameras.map((c, idx) => {
+      const status = c.status || 'UNKNOWN';
+      const ch = c.channel_no ? c.channel_no : (idx + 1);
+      const title = `${c.name || 'Cam'} (Ch ${ch})\nNVR: ${bay.name}\nStatus: ${status}\nLocation: ${c.location || 'N/A'}\nIP: ${c.ip_address}:${c.port || 554}\nLatency: ${c.latency_ms || 0}ms\nError: ${c.last_error || 'None'}`;
+      return `
+        <div class="heatmap-cell status-${status}" 
+             title="${title}" 
+             onclick="checkCamera(${c.id})">
+          ${ch}
+        </div>
+      `;
+    }).join("");
+
     return `
-      <div class="heatmap-cell status-${status}" 
-           title="${title}" 
-           onclick="checkCamera(${c.id})">
-        ${ch}
+      <div class="${bayClass}">
+        <div class="rack-bay-label">
+          <div class="rack-bay-name" title="${bay.name}">${bay.name}</div>
+          <div class="rack-bay-sub">${bay.ip} • ${online}/${total} Online</div>
+        </div>
+        <div class="rack-bay-strip">
+          ${tilesHtml}
+        </div>
       </div>
     `;
   }).join("");
