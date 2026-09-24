@@ -88,7 +88,7 @@ async function loadCameras() {
     cameras = await res.json();
     updateStats();
     populateNvrFilter();
-    renderCameraGrid();
+    renderNvrGroupedTables();
     renderInventoryTable();
   } catch (e) {
     console.error("Failed to load cameras", e);
@@ -107,10 +107,13 @@ function updateStats() {
   document.getElementById("stat-offline").textContent = offline;
 }
 
+// State for open/closed accordions
+let nvrAccordionState = {};
+
 function populateNvrFilter() {
   const select = document.getElementById("filter-nvr");
   const currentVal = select.value;
-  const nvrs = [...new Set(cameras.map(c => c.dvr_nvr_name).filter(Boolean))].sort();
+  const nvrs = [...new Set(cameras.map(c => c.dvr_nvr_name || "Direct IP / Unassigned"))].sort();
   select.innerHTML = `<option value="ALL">All NVRs / DVRs</option>`;
   nvrs.forEach(nvr => {
     const opt = document.createElement("option");
@@ -121,13 +124,14 @@ function populateNvrFilter() {
   select.value = currentVal;
 }
 
-// Render Dashboard Grid
-function renderCameraGrid() {
-  const container = document.getElementById("camera-container");
+// Render NVR-Grouped Compact Tables
+function renderNvrGroupedTables() {
+  const container = document.getElementById("nvr-groups-container");
   const search = document.getElementById("cam-search").value.toLowerCase();
   const statusFilter = document.getElementById("filter-status").value;
   const nvrFilter = document.getElementById("filter-nvr").value;
 
+  // Filter cameras
   const filtered = cameras.filter(c => {
     const matchesSearch = !search || 
       (c.name && c.name.toLowerCase().includes(search)) ||
@@ -136,51 +140,155 @@ function renderCameraGrid() {
       (c.location && c.location.toLowerCase().includes(search)) ||
       (c.channel_no && c.channel_no.toString().includes(search));
 
-    const matchesStatus = statusFilter === "ALL" || c.status === statusFilter;
-    const matchesNvr = nvrFilter === "ALL" || c.dvr_nvr_name === nvrFilter;
+    let matchesStatus = true;
+    if (statusFilter === "PROBLEMS") {
+      matchesStatus = c.status === "OFFLINE" || c.status === "WARNING";
+    } else if (statusFilter !== "ALL") {
+      matchesStatus = c.status === statusFilter;
+    }
+
+    const nvrKey = c.dvr_nvr_name || "Direct IP / Unassigned";
+    const matchesNvr = nvrFilter === "ALL" || nvrKey === nvrFilter;
 
     return matchesSearch && matchesStatus && matchesNvr;
   });
 
   if (filtered.length === 0) {
-    container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">No cameras match the current filter.</div>`;
+    container.innerHTML = `<div class="stat-card" style="text-align: center; color: var(--text-muted); padding: 3rem;">No cameras match the selected search/status filter.</div>`;
     return;
   }
 
-  container.innerHTML = filtered.map(c => {
-    const statusClass = c.status === "ONLINE" ? "online" : (c.status === "WARNING" ? "warning" : "offline");
+  // Group by NVR
+  const groups = {};
+  filtered.forEach(cam => {
+    const groupName = cam.dvr_nvr_name || "Direct IP / Unassigned";
+    if (!groups[groupName]) {
+      groups[groupName] = {
+        name: groupName,
+        ip: cam.ip_address,
+        cameras: []
+      };
+    }
+    groups[groupName].cameras.push(cam);
+  });
+
+  const sortedGroupNames = Object.keys(groups).sort();
+
+  container.innerHTML = sortedGroupNames.map(groupName => {
+    const g = groups[groupName];
+    const totalInGroup = g.cameras.length;
+    const onlineInGroup = g.cameras.filter(c => c.status === "ONLINE").length;
+    const offlineInGroup = g.cameras.filter(c => c.status === "OFFLINE").length;
+    const warningInGroup = g.cameras.filter(c => c.status === "WARNING").length;
+
+    // Card status indicator
+    let cardClass = "nvr-card";
+    if (offlineInGroup > 0) cardClass += " has-offline";
+    else if (warningInGroup > 0) cardClass += " has-warning";
+
+    // Check if open in state (default open if has offline or search active)
+    const isOpen = nvrAccordionState[groupName] ?? (offlineInGroup > 0 || search.length > 0 || true);
+    if (isOpen) cardClass += " open";
+
+    const rowsHtml = g.cameras.map(c => {
+      let rowClass = "";
+      if (c.status === "OFFLINE") rowClass = "offline-row";
+      else if (c.status === "WARNING") rowClass = "warning-row";
+
+      const dotClass = c.status === "ONLINE" ? "online" : (c.status === "WARNING" ? "warning" : "offline");
+
+      return `
+        <tr class="${rowClass}">
+          <td style="white-space: nowrap;">
+            <span class="status-dot ${dotClass}"></span>
+            <span class="badge ${dotClass}">${c.status || 'UNKNOWN'}</span>
+          </td>
+          <td style="font-weight: 600; color: var(--text-muted);">${c.channel_no ? 'Ch ' + c.channel_no : '---'}</td>
+          <td style="font-weight: 600;">${c.name || 'Unnamed'}</td>
+          <td>${c.location || '---'}</td>
+          <td style="font-family: monospace; font-size: 0.78rem;">${c.ip_address}:${c.port || 554}</td>
+          <td>${c.status === 'ONLINE' ? c.latency_ms + 'ms' : '---'}</td>
+          <td style="font-size: 0.78rem; color: ${c.status === 'OFFLINE' ? 'var(--offline)' : 'var(--text-muted)'};">
+            ${c.status === 'ONLINE' ? 'Healthy' : (c.last_error || 'Outage')}
+          </td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn btn-sm" onclick="checkCamera(${c.id})">🔍 Check</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
     return `
-      <div class="cam-card status-${c.status}">
-        <div class="cam-header">
-          <div class="cam-name">${c.name || 'Unnamed Cam'}</div>
-          <span class="badge ${statusClass}">
-            ● ${c.status || 'UNKNOWN'}
-          </span>
-        </div>
-
-        <div class="cam-details">
-          <div>DVR/NVR: <strong>${c.dvr_nvr_name || 'N/A'}</strong></div>
-          <div>Channel: <strong>${c.channel_no ? 'Ch ' + c.channel_no : 'N/A'}</strong></div>
-          <div>Location: <strong>${c.location || 'N/A'}</strong></div>
-          <div>IP: <strong>${c.ip_address}:${c.port || 554}</strong></div>
-        </div>
-
-        <div class="cam-url" title="${c.masked_url}">${c.masked_url}</div>
-
-        <div class="cam-footer">
-          <div>
-            ${c.status === 'ONLINE' ? `Latency: ${c.latency_ms || 0}ms` : `<span style="color: var(--offline);">${c.last_error || 'Down'}</span>`}
+      <div class="${cardClass}" id="nvr-card-${CSS.escape(groupName)}">
+        <div class="nvr-header" onclick="toggleNvrAccordion('${escapeHtml(groupName)}')">
+          <div class="nvr-title-group">
+            <span class="nvr-chevron">▶</span>
+            <span style="font-weight: 700; font-size: 0.95rem;">${escapeHtml(groupName)}</span>
+            <span style="color: var(--text-muted); font-size: 0.8rem; font-family: monospace;">(${g.ip})</span>
           </div>
-          <button class="btn btn-sm" onclick="checkCamera(${c.id})">🔍 Check</button>
+
+          <div class="nvr-badges">
+            <span style="color: var(--text-muted); margin-right: 0.4rem;">${totalInGroup} Cams:</span>
+            <span class="badge online">🟢 ${onlineInGroup}</span>
+            ${warningInGroup > 0 ? `<span class="badge warning">🟡 ${warningInGroup}</span>` : ''}
+            ${offlineInGroup > 0 ? `<span class="badge offline">🔴 ${offlineInGroup}</span>` : ''}
+          </div>
+        </div>
+
+        <div class="nvr-body">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th style="width: 110px;">Status</th>
+                <th style="width: 70px;">Channel</th>
+                <th>Camera Name</th>
+                <th>Location</th>
+                <th>IP & Port</th>
+                <th style="width: 80px;">Latency</th>
+                <th>Status / Error Reason</th>
+                <th style="width: 80px; text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
         </div>
       </div>
     `;
   }).join("");
 }
 
-document.getElementById("cam-search").addEventListener("input", renderCameraGrid);
-document.getElementById("filter-status").addEventListener("change", renderCameraGrid);
-document.getElementById("filter-nvr").addEventListener("change", renderCameraGrid);
+function escapeHtml(str) {
+  return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+window.toggleNvrAccordion = function(groupName) {
+  const card = document.getElementById(`nvr-card-${CSS.escape(groupName)}`);
+  if (!card) return;
+  const isCurrentlyOpen = card.classList.contains("open");
+  if (isCurrentlyOpen) {
+    card.classList.remove("open");
+    nvrAccordionState[groupName] = false;
+  } else {
+    card.classList.add("open");
+    nvrAccordionState[groupName] = true;
+  }
+};
+
+document.getElementById("btn-expand-all").addEventListener("click", () => {
+  document.querySelectorAll(".nvr-card").forEach(c => c.classList.add("open"));
+  Object.keys(nvrAccordionState).forEach(k => nvrAccordionState[k] = true);
+});
+
+document.getElementById("btn-collapse-all").addEventListener("click", () => {
+  document.querySelectorAll(".nvr-card").forEach(c => c.classList.remove("open"));
+  Object.keys(nvrAccordionState).forEach(k => nvrAccordionState[k] = false);
+});
+
+document.getElementById("cam-search").addEventListener("input", renderNvrGroupedTables);
+document.getElementById("filter-status").addEventListener("change", renderNvrGroupedTables);
+document.getElementById("filter-nvr").addEventListener("change", renderNvrGroupedTables);
 
 // Manual Camera Re-Check
 window.checkCamera = async function(id) {

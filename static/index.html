@@ -53,11 +53,12 @@
       </div>
 
       <div class="filter-bar">
-        <input type="text" id="cam-search" class="search-input" placeholder="🔍 Search by camera name, IP, NVR, location...">
+        <input type="text" id="cam-search" class="search-input" placeholder="🔍 Search camera, IP, NVR, location, channel...">
         
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
           <select id="filter-status" class="filter-select">
             <option value="ALL">All Statuses</option>
+            <option value="PROBLEMS">⚠️ Outages & Warnings Only</option>
             <option value="OFFLINE">Offline Only</option>
             <option value="WARNING">Warning Only</option>
             <option value="ONLINE">Online Only</option>
@@ -66,11 +67,15 @@
           <select id="filter-nvr" class="filter-select">
             <option value="ALL">All NVRs / DVRs</option>
           </select>
+
+          <button class="btn btn-sm" id="btn-expand-all">📂 Expand All</button>
+          <button class="btn btn-sm" id="btn-collapse-all">📁 Collapse All</button>
         </div>
       </div>
 
-      <div id="camera-container" class="camera-grid">
-        <!-- Rendered dynamically -->
+      <!-- NVR-Grouped Compact Table Container -->
+      <div id="nvr-groups-container" style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Dynamically rendered NVR accordion blocks with compact tables -->
       </div>
     </div>
 

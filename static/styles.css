@@ -324,14 +324,109 @@ main {
   color: var(--text-muted);
 }
 
-/* Tables */
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
+/* NVR Accordion & Compact Table Styling */
+.nvr-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
 }
+
+.nvr-card.has-offline {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.1);
+}
+
+.nvr-card.has-warning {
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.nvr-header {
+  padding: 0.75rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+}
+
+.nvr-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nvr-card.open .nvr-header {
+  border-bottom-color: var(--border);
+}
+
+.nvr-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nvr-chevron {
+  transition: transform 0.2s ease;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.nvr-card.open .nvr-chevron {
+  transform: rotate(90deg);
+}
+
+.nvr-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.nvr-body {
+  display: none;
+}
+
+.nvr-card.open .nvr-body {
+  display: block;
+}
+
+/* Compact Table specifics */
+.compact-table {
+  font-size: 0.82rem;
+}
+
+.compact-table th {
+  padding: 0.5rem 0.85rem;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.72rem;
+}
+
+.compact-table td {
+  padding: 0.45rem 0.85rem;
+  vertical-align: middle;
+}
+
+.compact-table tr.offline-row td {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.compact-table tr.warning-row td {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+}
+
+.status-dot.online { background-color: var(--online); }
+.status-dot.warning { background-color: var(--warning); }
+.status-dot.offline { background-color: var(--offline); }
 
 table {
   width: 100%;
