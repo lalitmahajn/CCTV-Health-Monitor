@@ -292,6 +292,22 @@ def setup_routes(app):
             "Content-Disposition": "attachment; filename=cctv_cameras_export.csv"
         })
 
+    @router.get("/cameras/excel/export")
+    async def export_cameras_excel():
+        from app.excel_export import generate_excel_export
+        from datetime import datetime
+        cams = await cam_repo.get_all()
+        nvrs = await nvr_repo.get_all()
+        excel_bytes = generate_excel_export(cams, nvrs)
+        filename = f"cctv_fleet_inventory_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return Response(
+            content=excel_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+
     @router.post("/cameras/csv/import")
     async def import_cameras_csv(file: UploadFile = File(...)):
         content_bytes = await file.read()

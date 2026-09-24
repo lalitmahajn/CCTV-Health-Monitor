@@ -80,6 +80,13 @@ async def test_api_camera_endpoints(tmp_path):
         renamed_cams = [c for c in cams_after if c["dvr_nvr_name"] == "Main Gate NVR"]
         assert len(renamed_cams) == 27
 
+        # Test Excel export endpoint
+        res_excel = await client.get("/api/cameras/excel/export")
+        assert res_excel.status_code == 200
+        assert res_excel.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        assert len(res_excel.content) > 1000
+
+
 
 
 

@@ -37,7 +37,7 @@
       </button>
       <button class="nav-tab" data-tab="tab-csv">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Bulk CSV
+        Import / Export
       </button>
       <button class="nav-tab" data-tab="tab-settings">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -218,10 +218,14 @@
           <span id="inventory-count" class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border-subtle); font-size: 0.75rem; padding: 0.2rem 0.6rem;"></span>
         </div>
         <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <div class="search-input-wrapper" style="width: 280px;">
+          <div class="search-input-wrapper" style="width: 270px;">
             <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input type="text" id="inventory-search" class="search-input" placeholder="Search name, NVR, location, IP..." style="padding-left: 2rem;">
           </div>
+          <a href="/api/cameras/excel/export" class="btn" download style="display: inline-flex; align-items: center; gap: 0.4rem;" title="Download executive formatted Excel spreadsheet of all cameras & NVR capacities">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Excel
+          </a>
           <button class="btn btn-primary" id="btn-add-camera">+ Add Camera</button>
         </div>
       </div>
@@ -246,17 +250,21 @@
       </div>
     </div>
 
-    <!-- TAB 4: BULK CSV IMPORT / EXPORT -->
+    <!-- TAB 4: BULK CSV & EXCEL IMPORT / EXPORT -->
     <div id="tab-csv" class="tab-pane">
       <div class="stat-card" style="max-width: 800px; margin: 0 auto;">
-        <h3 style="margin-bottom: 0.75rem;">Bulk Camera Import & Export</h3>
+        <h3 style="margin-bottom: 0.75rem;">Fleet Data Import & Export</h3>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
-          Quickly manage all 270+ cameras using CSV spreadsheets. Passwords in RTSP URLs are securely stored and validated.
+          Export your entire fleet with real-time status and NVR capacity breakdown into a professionally formatted Excel spreadsheet, or manage cameras in bulk via CSV.
         </p>
 
-        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+          <a href="/api/cameras/excel/export" class="btn btn-primary" download style="display: inline-flex; align-items: center; gap: 0.45rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Formatted Excel (.xlsx)
+          </a>
+          <a href="/api/cameras/csv/export" class="btn" download>Export Raw CSV</a>
           <a href="/api/cameras/csv/template" class="btn" download>Download CSV Template</a>
-          <a href="/api/cameras/csv/export" class="btn" download>Export Current Cameras</a>
         </div>
 
         <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin-bottom: 1.5rem;">
