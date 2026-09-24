@@ -89,9 +89,22 @@ def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 4, m
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         mean_intensity = float(np.mean(gray))
 
-        # Save snapshot resized to max_width for crisp OSD text without bloat
+        # Save snapshot with anamorphic aspect ratio correction
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         h, w = frame.shape[:2]
+
+        # Anamorphic Aspect Ratio Normalization:
+        # Dahua / CP Plus DVRs frequently stream in "1080N" (960x1080), which has non-square pixels
+        # and is designed to be stretched horizontally by 2x to widescreen 16:9 (1920x1080).
+        if w < h:
+            frame = cv2.resize(frame, (w * 2, h), interpolation=cv2.INTER_CUBIC)
+            h, w = frame.shape[:2]
+        elif 1.15 <= (w / h) <= 1.35 and h in (480, 576):
+            # PAL / NTSC D1 (e.g. 704x576) -> normalize to standard 4:3
+            display_w = int(round(h * 4.0 / 3.0))
+            frame = cv2.resize(frame, (display_w, h), interpolation=cv2.INTER_CUBIC)
+            h, w = frame.shape[:2]
+
         if w > max_width:
             aspect = h / w
             thumb_w = max_width
