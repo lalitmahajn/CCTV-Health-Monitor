@@ -111,19 +111,40 @@ async function loadCameras() {
 }
 
 function updateStats() {
-  const total = cameras.length;
-  const online = cameras.filter(c => c.status === "ONLINE").length;
-  const warning = cameras.filter(c => c.status === "WARNING").length;
-  const offline = cameras.filter(c => c.status === "OFFLINE").length;
+  const activeCams = cameras.filter(c => !c.is_no_cam);
+  const total = activeCams.length;
+  const online = activeCams.filter(c => c.status === "ONLINE").length;
+  const warning = activeCams.filter(c => c.status === "WARNING").length;
+  const offline = activeCams.filter(c => c.status === "OFFLINE").length;
+  const noCamCount = cameras.filter(c => c.is_no_cam).length;
 
   document.getElementById("stat-total").textContent = total;
   document.getElementById("stat-online").textContent = online;
   document.getElementById("stat-warning").textContent = warning;
   document.getElementById("stat-offline").textContent = offline;
+  const noCamElem = document.getElementById("stat-nocam");
+  if (noCamElem) noCamElem.textContent = noCamCount;
 }
 
-// State for open/closed accordions
+// State for open/closed accordions and No Cam visibility
 let nvrAccordionState = {};
+let showNoCamState = {};
+
+window.toggleShowNoCam = function(groupName) {
+  showNoCamState[groupName] = !showNoCamState[groupName];
+  renderNvrGroupedTables();
+};
+
+window.toggleNoCam = async function(id) {
+  try {
+    const res = await fetch(`/api/cameras/${id}/toggle-no-cam`, { method: "POST" });
+    const data = await res.json();
+    showToast("Camera Updated", data.message, false);
+    loadCameras();
+  } catch (e) {
+    console.error("Failed to toggle no cam", e);
+  }
+};
 
 function populateNvrFilter() {
   const select = document.getElementById("filter-nvr");
@@ -157,9 +178,11 @@ function renderNvrGroupedTables() {
 
     let matchesStatus = true;
     if (statusFilter === "PROBLEMS") {
-      matchesStatus = c.status === "OFFLINE" || c.status === "WARNING";
+      matchesStatus = !c.is_no_cam && (c.status === "OFFLINE" || c.status === "WARNING");
+    } else if (statusFilter === "NO_CAM") {
+      matchesStatus = !!c.is_no_cam;
     } else if (statusFilter !== "ALL") {
-      matchesStatus = c.status === statusFilter;
+      matchesStatus = !c.is_no_cam && c.status === statusFilter;
     }
 
     const nvrKey = c.dvr_nvr_name || "Direct IP / Unassigned";
@@ -191,10 +214,13 @@ function renderNvrGroupedTables() {
 
   container.innerHTML = sortedGroupNames.map(groupName => {
     const g = groups[groupName];
-    const totalInGroup = g.cameras.length;
-    const onlineInGroup = g.cameras.filter(c => c.status === "ONLINE").length;
-    const offlineInGroup = g.cameras.filter(c => c.status === "OFFLINE").length;
-    const warningInGroup = g.cameras.filter(c => c.status === "WARNING").length;
+    const realCameras = g.cameras.filter(c => !c.is_no_cam);
+    const noCamCameras = g.cameras.filter(c => c.is_no_cam);
+    const activeInGroup = realCameras.length;
+    const noCamInGroup = noCamCameras.length;
+    const onlineInGroup = realCameras.filter(c => c.status === "ONLINE").length;
+    const offlineInGroup = realCameras.filter(c => c.status === "OFFLINE").length;
+    const warningInGroup = realCameras.filter(c => c.status === "WARNING").length;
 
     // Card status indicator
     let cardClass = "nvr-card";
@@ -205,37 +231,67 @@ function renderNvrGroupedTables() {
     const isOpen = nvrAccordionState[groupName] ?? (offlineInGroup > 0 || search.length > 0 || true);
     if (isOpen) cardClass += " open";
 
-    const rowsHtml = g.cameras.map(c => {
-      let rowClass = "";
-      if (c.status === "OFFLINE") rowClass = "offline-row";
-      else if (c.status === "WARNING") rowClass = "warning-row";
+    // Determine which cameras to show in table: hide No Cam unless user clicked showing or filtered by NO_CAM
+    let visibleList = [];
+    if (statusFilter === "NO_CAM") {
+      visibleList = noCamCameras;
+    } else if (showNoCamState[groupName] || search.length > 0) {
+      visibleList = g.cameras;
+    } else {
+      visibleList = realCameras; // Default: HIDE No Cam from dashboard
+    }
 
-      const dotClass = c.status === "ONLINE" ? "online" : (c.status === "WARNING" ? "warning" : "offline");
+    const rowsHtml = visibleList.map(c => {
+      let rowClass = "";
+      if (c.is_no_cam) {
+        rowClass = "nocam-row";
+      } else if (c.status === "OFFLINE") {
+        rowClass = "offline-row";
+      } else if (c.status === "WARNING") {
+        rowClass = "warning-row";
+      }
+
+      let dotClass = "";
+      let badgeHtml = "";
+      let statusReason = "";
+
+      if (c.is_no_cam) {
+        badgeHtml = `<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px dashed rgba(255,255,255,0.2);">NO CAM</span>`;
+        statusReason = `<span style="color: var(--text-muted); font-size: 0.76rem;">Spare / Unassigned Port</span>`;
+      } else {
+        dotClass = c.status === "ONLINE" ? "online" : (c.status === "WARNING" ? "warning" : "offline");
+        badgeHtml = `<span class="status-dot ${dotClass}"></span><span class="badge ${dotClass}">${c.status || 'UNKNOWN'}</span>`;
+        statusReason = c.status === 'ONLINE' ? 'Healthy' : (c.last_error || 'Outage');
+      }
+
+      const actionButtons = c.is_no_cam ? `
+        <button class="btn btn-sm" style="color: #60a5fa; font-size: 0.72rem; padding: 0.15rem 0.45rem;" onclick="toggleNoCam(${c.id})" title="Restore to active camera monitoring">Unmark</button>
+      ` : `
+        <button class="btn btn-sm" onclick="checkCamera(${c.id})">Check</button>
+        <button class="btn btn-sm" style="color: var(--text-muted); font-size: 0.72rem; padding: 0.15rem 0.45rem; margin-left: 3px;" onclick="toggleNoCam(${c.id})" title="Mark as empty/spare channel and hide from dashboard">No Cam</button>
+      `;
 
       return `
         <tr class="${rowClass}">
-          <td style="white-space: nowrap;">
-            <span class="status-dot ${dotClass}"></span>
-            <span class="badge ${dotClass}">${c.status || 'UNKNOWN'}</span>
-          </td>
+          <td style="white-space: nowrap;">${badgeHtml}</td>
           <td style="font-weight: 600; color: var(--text-muted);">${c.channel_no ? 'Ch ' + c.channel_no : '---'}</td>
-          <td style="font-weight: 600;">${c.name || 'Unnamed'}</td>
-          <td>${c.location || '---'}</td>
+          <td style="font-weight: 600; ${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.name || 'Unnamed'}</td>
+          <td style="${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.location || '---'}</td>
           <td style="font-family: monospace; font-size: 0.78rem;">${c.ip_address}:${c.port || 554}</td>
-          <td>${c.status === 'ONLINE' ? c.latency_ms + 'ms' : '---'}</td>
-          <td style="font-size: 0.78rem; color: ${c.status === 'OFFLINE' ? 'var(--offline)' : 'var(--text-muted)'};">
-            ${c.status === 'ONLINE' ? 'Healthy' : (c.last_error || 'Outage')}
+          <td>${!c.is_no_cam && c.status === 'ONLINE' ? c.latency_ms + 'ms' : '---'}</td>
+          <td style="font-size: 0.78rem; color: ${!c.is_no_cam && c.status === 'OFFLINE' ? 'var(--offline)' : 'var(--text-muted)'};">
+            ${statusReason}
           </td>
           <td style="text-align: right; white-space: nowrap;">
-            <button class="btn btn-sm" onclick="checkCamera(${c.id})">Check</button>
+            ${actionButtons}
           </td>
         </tr>
       `;
     }).join("");
 
     const meta = nvrMetadata[groupName] || {};
-    const totalPorts = meta.total_channels || totalInGroup;
-    const usedPorts = meta.used_channels || totalInGroup;
+    const totalPorts = meta.total_channels || g.cameras.length;
+    const usedPorts = meta.used_channels || g.cameras.length;
     const freePorts = Math.max(0, totalPorts - usedPorts);
 
     return `
@@ -251,11 +307,17 @@ function renderNvrGroupedTables() {
           </div>
 
           <div class="nvr-badges">
-            <span style="color: var(--text-muted); margin-right: 0.4rem;">${totalInGroup} Cams:</span>
+            <span style="color: var(--text-muted); margin-right: 0.3rem;">${activeInGroup} Cams:</span>
             <span class="badge online">${onlineInGroup} Online</span>
             ${warningInGroup > 0 ? `<span class="badge warning">${warningInGroup} Warning</span>` : ''}
             ${offlineInGroup > 0 ? `<span class="badge offline">${offlineInGroup} Offline</span>` : ''}
-            <button class="btn btn-sm" style="margin-left: 0.5rem; padding: 0.2rem 0.55rem; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 0.35rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-active);" onclick="event.stopPropagation(); auditNvrChannels('${escapeHtml(groupName)}')">
+            ${noCamInGroup > 0 ? `
+              <button class="badge" style="cursor: pointer; background: rgba(255,255,255,0.06); border: 1px dashed var(--border-active); font-size: 0.72rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.3rem;" onclick="event.stopPropagation(); toggleShowNoCam('${escapeHtml(groupName)}')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                ${noCamInGroup} No Cam (${showNoCamState[groupName] ? 'Showing' : 'Hidden'})
+              </button>
+            ` : ''}
+            <button class="btn btn-sm" style="margin-left: 0.4rem; padding: 0.2rem 0.55rem; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 0.35rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-active);" onclick="event.stopPropagation(); auditNvrChannels('${escapeHtml(groupName)}')">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="12 6 12 12 16 14"/></svg>
               Scan Ports
             </button>
@@ -273,7 +335,7 @@ function renderNvrGroupedTables() {
                 <th>IP & Port</th>
                 <th style="width: 80px;">Latency</th>
                 <th>Status / Error Reason</th>
-                <th style="width: 80px; text-align: right;">Action</th>
+                <th style="width: 110px; text-align: right;">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -349,13 +411,16 @@ function renderVisuals() {
     if (offline > 0) bayClass += " has-offline";
 
     const tilesHtml = bay.cameras.map((c, idx) => {
-      const status = c.status || 'UNKNOWN';
+      const isNoCam = !!c.is_no_cam;
+      const status = isNoCam ? 'NO_CAM' : (c.status || 'UNKNOWN');
       const ch = c.channel_no ? c.channel_no : (idx + 1);
-      const title = `${c.name || 'Cam'} (Ch ${ch})\nNVR: ${bay.name}\nStatus: ${status}\nLocation: ${c.location || 'N/A'}\nIP: ${c.ip_address}:${c.port || 554}\nLatency: ${c.latency_ms || 0}ms\nError: ${c.last_error || 'None'}`;
+      const title = isNoCam 
+        ? `${c.name || 'No Cam'} (Ch ${ch})\nNVR: ${bay.name}\nStatus: Spare / Empty Port (Click to unmark)` 
+        : `${c.name || 'Cam'} (Ch ${ch})\nNVR: ${bay.name}\nStatus: ${status}\nLocation: ${c.location || 'N/A'}\nIP: ${c.ip_address}:${c.port || 554}\nLatency: ${c.latency_ms || 0}ms\nError: ${c.last_error || 'None'}`;
       return `
         <div class="heatmap-cell status-${status}" 
              title="${title}" 
-             onclick="checkCamera(${c.id})">
+             onclick="${isNoCam ? `toggleNoCam(${c.id})` : `checkCamera(${c.id})`}">
           ${ch}
         </div>
       `;
@@ -567,18 +632,26 @@ function renderInventoryTable() {
     return;
   }
   tbody.innerHTML = cameras.map(c => `
-    <tr>
-      <td style="font-weight: 600;">${c.name}</td>
-      <td>${c.dvr_nvr_name || 'N/A'}</td>
-      <td>${c.channel_no || 'N/A'}</td>
-      <td>${c.location || 'N/A'}</td>
-      <td>${c.ip_address}</td>
+    <tr class="${c.is_no_cam ? 'nocam-row' : ''}">
+      <td style="font-weight: 600; ${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.name}</td>
+      <td style="${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.dvr_nvr_name || 'N/A'}</td>
+      <td style="${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.channel_no || 'N/A'}</td>
+      <td style="${c.is_no_cam ? 'color: var(--text-muted);' : ''}">${c.location || 'N/A'}</td>
+      <td style="font-family: monospace; font-size: 0.8rem;">${c.ip_address}</td>
       <td>${c.port || 554}</td>
       <td style="font-family: monospace; font-size: 0.75rem;">${c.masked_url}</td>
-      <td><span class="badge ${c.status === 'ONLINE' ? 'online' : (c.status === 'WARNING' ? 'warning' : 'offline')}">${c.status}</span></td>
       <td>
+        ${c.is_no_cam 
+          ? `<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px dashed rgba(255,255,255,0.2);">NO CAM</span>` 
+          : `<span class="badge ${c.status === 'ONLINE' ? 'online' : (c.status === 'WARNING' ? 'warning' : 'offline')}">${c.status}</span>`
+        }
+      </td>
+      <td style="white-space: nowrap; text-align: right;">
         <button class="btn btn-sm" onclick="editCamera(${c.id})">Edit</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteCamera(${c.id})">Delete</button>
+        <button class="btn btn-sm" style="color: ${c.is_no_cam ? '#60a5fa' : 'var(--text-muted)'}; margin-left: 4px;" onclick="toggleNoCam(${c.id})" title="${c.is_no_cam ? 'Restore to active' : 'Mark as spare'}">
+          ${c.is_no_cam ? 'Unmark' : 'No Cam'}
+        </button>
+        <button class="btn btn-sm btn-danger" style="margin-left: 4px;" onclick="deleteCamera(${c.id})">Del</button>
       </td>
     </tr>
   `).join("");
@@ -589,6 +662,7 @@ document.getElementById("btn-add-camera").addEventListener("click", () => {
   document.getElementById("modal-title").textContent = "Add Camera";
   document.getElementById("camera-form").reset();
   document.getElementById("form-cam-id").value = "";
+  document.getElementById("form-cam-nocam").checked = false;
   modal.classList.add("active");
 });
 
@@ -598,6 +672,7 @@ document.getElementById("btn-cancel-modal").addEventListener("click", () => moda
 document.getElementById("camera-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("form-cam-id").value;
+  const isNoCam = document.getElementById("form-cam-nocam").checked;
   const payload = {
     name: document.getElementById("form-cam-name").value,
     dvr_nvr_name: document.getElementById("form-cam-nvr").value,
@@ -605,7 +680,8 @@ document.getElementById("camera-form").addEventListener("submit", async (e) => {
     ip_address: document.getElementById("form-cam-ip").value,
     port: parseInt(document.getElementById("form-cam-port").value) || 554,
     channel_no: document.getElementById("form-cam-ch").value,
-    rtsp_url: document.getElementById("form-cam-url").value
+    rtsp_url: document.getElementById("form-cam-url").value,
+    is_no_cam: isNoCam
   };
 
   try {
@@ -641,6 +717,7 @@ window.editCamera = function(id) {
   document.getElementById("form-cam-port").value = c.port || 554;
   document.getElementById("form-cam-ch").value = c.channel_no || "";
   document.getElementById("form-cam-url").value = c.rtsp_url;
+  document.getElementById("form-cam-nocam").checked = !!c.is_no_cam;
   modal.classList.add("active");
 };
 

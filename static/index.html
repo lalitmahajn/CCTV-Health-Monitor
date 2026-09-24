@@ -54,9 +54,9 @@
   <main>
     <!-- TAB 1: LIVE DASHBOARD -->
     <div id="tab-dashboard" class="tab-pane active">
-      <div class="stats-grid">
+      <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
         <div class="stat-card">
-          <div class="stat-title">Total Cameras</div>
+          <div class="stat-title">Active Monitored</div>
           <div class="stat-value" id="stat-total">0</div>
         </div>
         <div class="stat-card">
@@ -71,6 +71,10 @@
           <div class="stat-title">Offline</div>
           <div class="stat-value offline" id="stat-offline">0</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-title">No Cam (Spare)</div>
+          <div class="stat-value" style="color: var(--text-muted);" id="stat-nocam">0</div>
+        </div>
       </div>
 
       <div class="filter-bar">
@@ -78,11 +82,12 @@
         
         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
           <select id="filter-status" class="filter-select">
-            <option value="ALL">All Statuses</option>
+            <option value="ALL">All Active Cameras</option>
             <option value="PROBLEMS">Outages & Warnings Only</option>
             <option value="OFFLINE">Offline Only</option>
             <option value="WARNING">Warning Only</option>
             <option value="ONLINE">Online Only</option>
+            <option value="NO_CAM">No Cam (Spare Ports)</option>
           </select>
 
           <select id="filter-nvr" class="filter-select">
@@ -341,6 +346,12 @@
         <div class="form-group">
           <label>RTSP Stream URL *</label>
           <input type="text" id="form-cam-url" class="form-input" required placeholder="rtsp://admin:pass@192.168.1.10:554/ch1">
+        </div>
+        <div class="form-group" style="margin-top: 0.5rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.8rem;">
+            <input type="checkbox" id="form-cam-nocam">
+            <span>Mark as "No Cam" (Spare / Unassigned Port - hidden from active alerts)</span>
+          </label>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
           <button type="button" class="btn" id="btn-cancel-modal">Cancel</button>

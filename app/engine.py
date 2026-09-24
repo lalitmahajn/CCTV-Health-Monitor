@@ -160,7 +160,8 @@ class MonitoringEngine:
         while self.is_running:
             try:
                 interval = int(await self.settings_repo.get("ping_interval_seconds", 30))
-                cameras = await self.camera_repo.get_all(enabled_only=True)
+                all_cams = await self.camera_repo.get_all(enabled_only=True)
+                cameras = [cam for cam in all_cams if not cam.get("is_no_cam")]
                 
                 # Run checks across cameras concurrently with per-host throttler
                 tasks = [self.check_single_camera(cam["id"]) for cam in cameras]

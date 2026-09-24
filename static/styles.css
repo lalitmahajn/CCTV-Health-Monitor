@@ -450,6 +450,14 @@ tr.warning-row td {
   background: rgba(245, 158, 11, 0.04);
 }
 
+tr.nocam-row td {
+  opacity: 0.65;
+}
+
+tr.nocam-row:hover td {
+  opacity: 1;
+}
+
 /* Visuals Rack Bay Matrix */
 .heatmap-rack-container {
   display: flex;
@@ -537,6 +545,12 @@ tr.warning-row td {
 
 .heatmap-cell.status-OFFLINE {
   background-color: var(--status-offline);
+}
+
+.heatmap-cell.status-NO_CAM {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
 }
 
 /* Progress Bars */

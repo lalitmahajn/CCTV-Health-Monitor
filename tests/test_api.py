@@ -54,3 +54,18 @@ async def test_api_camera_endpoints(tmp_path):
         res_audit_404 = await client.post("/api/nvrs/NonExistentNVR/audit-channels")
         assert res_audit_404.status_code == 404
 
+        # Toggle No Cam on an active seeded camera
+        cams_all = (await client.get("/api/cameras")).json()
+        target_id = cams_all[0]["id"]
+        res_toggle = await client.post(f"/api/cameras/{target_id}/toggle-no-cam")
+        assert res_toggle.status_code == 200
+        assert res_toggle.json()["is_no_cam"] == 1
+        assert res_toggle.json()["status"] == "NO_CAM"
+
+        # Toggle back
+        res_toggle_back = await client.post(f"/api/cameras/{target_id}/toggle-no-cam")
+        assert res_toggle_back.status_code == 200
+        assert res_toggle_back.json()["is_no_cam"] == 0
+
+
+

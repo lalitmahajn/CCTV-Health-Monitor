@@ -157,8 +157,9 @@ async def import_real_cameras():
         
         # Build local RTSP URL using Dahua/CP-Plus standard API
         rtsp_url = f"rtsp://arechs_cctv:scpl@2026@{nvr_info['ip']}:{nvr_info['port']}/cam/realmonitor?channel={ch_int}&subtype=0"
+        is_no_cam = ('no cam' in loc_str.lower() or 'no camera' in status_str.lower() or not is_active)
 
-        await repo.create(
+        cam_id = await repo.create(
             name=cam_name,
             dvr_nvr_name=canonical_nvr_name,
             location=loc_str,
@@ -166,8 +167,11 @@ async def import_real_cameras():
             port=nvr_info['port'],
             channel_no=ch_formatted,
             rtsp_url=rtsp_url,
-            is_enabled=is_active
+            is_enabled=is_active,
+            is_no_cam=is_no_cam
         )
+        if is_no_cam:
+            await repo.update_status(cam_id, status="NO_CAM", consecutive_failures=0)
         imported_count += 1
 
     print(f"\n[DONE] Successfully imported {imported_count} real cameras into database!")

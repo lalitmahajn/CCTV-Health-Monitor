@@ -22,13 +22,13 @@ class CameraRepository:
     async def create(self, name: str, ip_address: str, rtsp_url: str,
                      dvr_nvr_name: str = "", location: str = "",
                      port: int = 554, channel_no: str = "",
-                     is_enabled: bool = True) -> int:
+                     is_enabled: bool = True, is_no_cam: bool = False) -> int:
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("""
-                INSERT INTO cameras (name, dvr_nvr_name, location, ip_address, port, channel_no, rtsp_url, is_enabled)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (name, dvr_nvr_name, location, ip_address, port, str(channel_no), rtsp_url, 1 if is_enabled else 0))
+                INSERT INTO cameras (name, dvr_nvr_name, location, ip_address, port, channel_no, rtsp_url, is_enabled, is_no_cam)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (name, dvr_nvr_name, location, ip_address, port, str(channel_no), rtsp_url, 1 if is_enabled else 0, 1 if is_no_cam else 0))
             await db.commit()
             return cursor.lastrowid
 
@@ -96,7 +96,7 @@ class CameraRepository:
             return cursor.rowcount > 0
 
     async def update(self, camera_id: int, **fields) -> bool:
-        allowed = {"name", "dvr_nvr_name", "location", "ip_address", "port", "channel_no", "rtsp_url", "is_enabled"}
+        allowed = {"name", "dvr_nvr_name", "location", "ip_address", "port", "channel_no", "rtsp_url", "is_enabled", "is_no_cam"}
         set_clauses = []
         params = []
         for k, v in fields.items():
@@ -113,6 +113,22 @@ class CameraRepository:
             cursor = await db.execute(f"UPDATE cameras SET {', '.join(set_clauses)} WHERE id = ?", params)
             await db.commit()
             return cursor.rowcount > 0
+
+    async def toggle_no_cam(self, camera_id: int) -> Optional[Dict[str, Any]]:
+        cam = await self.get_by_id(camera_id)
+        if not cam:
+            return None
+        new_no_cam = 0 if cam.get("is_no_cam") else 1
+        new_status = "NO_CAM" if new_no_cam == 1 else "UNKNOWN"
+        async with get_db(self.db_path) as db:
+            await db.execute("""
+                UPDATE cameras 
+                SET is_no_cam = ?, status = ?, consecutive_failures = 0, last_error = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (new_no_cam, new_status, camera_id))
+            await db.commit()
+        return await self.get_by_id(camera_id)
+
 
 
 class NvrRepository:

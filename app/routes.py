@@ -15,6 +15,7 @@ class CameraCreate(BaseModel):
     channel_no: Optional[str] = ""
     rtsp_url: str
     is_enabled: Optional[bool] = True
+    is_no_cam: Optional[bool] = False
 
 class CameraUpdate(BaseModel):
     name: Optional[str] = None
@@ -25,6 +26,7 @@ class CameraUpdate(BaseModel):
     channel_no: Optional[str] = None
     rtsp_url: Optional[str] = None
     is_enabled: Optional[bool] = None
+    is_no_cam: Optional[bool] = None
 
 class OutageSimulate(BaseModel):
     camera_id: int
@@ -144,7 +146,8 @@ def setup_routes(app):
             port=payload.port or 554,
             channel_no=payload.channel_no or "",
             rtsp_url=payload.rtsp_url,
-            is_enabled=payload.is_enabled if payload.is_enabled is not None else True
+            is_enabled=payload.is_enabled if payload.is_enabled is not None else True,
+            is_no_cam=payload.is_no_cam or False
         )
         return {"id": cam_id, "message": "Camera created successfully"}
 
@@ -169,6 +172,25 @@ def setup_routes(app):
         if not ok:
             raise HTTPException(status_code=404, detail="Camera not found")
         return {"message": "Camera deleted"}
+
+    @router.post("/cameras/{camera_id}/toggle-no-cam")
+    async def toggle_camera_no_cam(camera_id: int):
+        updated_cam = await cam_repo.toggle_no_cam(camera_id)
+        if not updated_cam:
+            raise HTTPException(status_code=404, detail="Camera not found")
+        # If marked as no cam, close any open incidents
+        if updated_cam.get("is_no_cam"):
+            active_incidents = await inc_repo.get_active(camera_id)
+            for inc in active_incidents:
+                await inc_repo.close_incident(inc["id"])
+        if web_notifier:
+            await web_notifier.broadcast_event("CAMERA_UPDATE", {"camera": updated_cam})
+        return {
+            "camera_id": camera_id,
+            "is_no_cam": updated_cam.get("is_no_cam"),
+            "status": updated_cam.get("status"),
+            "message": f"Camera marked as {'No Cam (Spare)' if updated_cam.get('is_no_cam') else 'Active Camera'}"
+        }
 
     @router.post("/cameras/{camera_id}/check")
     async def manual_check_camera(camera_id: int):
