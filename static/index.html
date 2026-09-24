@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCTV Health Monitor</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">📹</div>
+      <div>
+        <div>CCTV Health Monitor</div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">Enterprise Multi-NVR Watchdog</div>
+      </div>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="tab-dashboard">📊 Dashboard</button>
+      <button class="nav-tab" data-tab="tab-incidents">⚠️ Incidents & Outages</button>
+      <button class="nav-tab" data-tab="tab-cameras">⚙️ Cameras</button>
+      <button class="nav-tab" data-tab="tab-csv">📥 Bulk CSV</button>
+      <button class="nav-tab" data-tab="tab-settings">🔧 Settings</button>
+    </nav>
+
+    <div class="header-controls">
+      <button class="btn btn-sm" id="btn-audio-toggle">🔊 Sound: ON</button>
+      <button class="btn btn-sm btn-primary" id="btn-scan-all">🔄 Scan All Now</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- TAB 1: LIVE DASHBOARD -->
+    <div id="tab-dashboard" class="tab-pane active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-title">Total Cameras</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Online</div>
+          <div class="stat-value online" id="stat-online">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Warning</div>
+          <div class="stat-value warning" id="stat-warning">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Offline</div>
+          <div class="stat-value offline" id="stat-offline">0</div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <input type="text" id="cam-search" class="search-input" placeholder="🔍 Search by camera name, IP, NVR, location...">
+        
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <select id="filter-status" class="filter-select">
+            <option value="ALL">All Statuses</option>
+            <option value="OFFLINE">Offline Only</option>
+            <option value="WARNING">Warning Only</option>
+            <option value="ONLINE">Online Only</option>
+          </select>
+
+          <select id="filter-nvr" class="filter-select">
+            <option value="ALL">All NVRs / DVRs</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="camera-container" class="camera-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- TAB 2: INCIDENTS -->
+    <div id="tab-incidents" class="tab-pane">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Active & Historical Incidents</h3>
+        <button class="btn btn-sm" id="btn-refresh-incidents">🔄 Refresh</button>
+      </div>
+
+      <h4 style="margin-bottom: 0.5rem; color: var(--offline);">🔴 Current Active Outages</h4>
+      <div class="table-responsive" style="margin-bottom: 1.5rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>Camera</th>
+              <th>DVR/NVR</th>
+              <th>Channel</th>
+              <th>Location</th>
+              <th>Started At</th>
+              <th>Reason</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="active-incidents-body">
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No active outages. All cameras healthy!</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4 style="margin-bottom: 0.5rem; color: var(--text-muted);">📜 Incident History (Last 100)</h4>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Camera</th>
+              <th>DVR/NVR</th>
+              <th>Channel</th>
+              <th>Location</th>
+              <th>Started At</th>
+              <th>Resolved At</th>
+              <th>Downtime</th>
+              <th>Error Details</th>
+            </tr>
+          </thead>
+          <tbody id="history-incidents-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: CAMERA INVENTORY -->
+    <div id="tab-cameras" class="tab-pane">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Camera Configuration Inventory</h3>
+        <button class="btn btn-primary" id="btn-add-camera">+ Add Camera</button>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>DVR/NVR Name</th>
+              <th>Channel</th>
+              <th>Location</th>
+              <th>IP Address</th>
+              <th>Port</th>
+              <th>Masked Stream URL</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="camera-inventory-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: BULK CSV IMPORT / EXPORT -->
+    <div id="tab-csv" class="tab-pane">
+      <div class="stat-card" style="max-width: 800px; margin: 0 auto;">
+        <h3 style="margin-bottom: 0.75rem;">Bulk Camera Import & Export</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          Quickly manage all 270+ cameras using CSV spreadsheets. Passwords in RTSP URLs are securely stored and validated.
+        </p>
+
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+          <a href="/api/cameras/csv/template" class="btn" download>📥 Download CSV Template</a>
+          <a href="/api/cameras/csv/export" class="btn" download>📤 Export Current Cameras</a>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin-bottom: 1.5rem;">
+
+        <h4 style="margin-bottom: 0.5rem;">Import Cameras from CSV</h4>
+        <input type="file" id="csv-file-input" accept=".csv" style="margin-bottom: 1rem;">
+        <div>
+          <button class="btn btn-primary" id="btn-upload-csv">Upload & Import CSV</button>
+        </div>
+        <div id="csv-upload-result" style="margin-top: 1rem; font-size: 0.85rem;"></div>
+      </div>
+    </div>
+
+    <!-- TAB 5: SETTINGS & ALERT STUBS -->
+    <div id="tab-settings" class="tab-pane">
+      <div class="stat-card" style="max-width: 700px; margin: 0 auto; margin-bottom: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;">Monitoring & Failure Thresholds</h3>
+        
+        <form id="settings-form">
+          <div class="form-group">
+            <label>Consecutive Failure Threshold (attempts before marking OFFLINE)</label>
+            <input type="number" id="setting-failure-threshold" class="form-input" min="1" max="10">
+          </div>
+
+          <div class="form-group">
+            <label>Socket Ping Timeout (ms)</label>
+            <input type="number" id="setting-socket-timeout" class="form-input" min="500" max="10000" step="100">
+          </div>
+
+          <div class="form-group">
+            <label>Ping Check Interval (seconds)</label>
+            <input type="number" id="setting-ping-interval" class="form-input" min="5" max="300">
+          </div>
+
+          <div class="form-group">
+            <label>High Latency Warning Threshold (ms)</label>
+            <input type="number" id="setting-latency-warning" class="form-input" min="200" max="5000">
+          </div>
+
+          <div class="form-group">
+            <label>Max Concurrency Per Host (NVR Overload Protection)</label>
+            <input type="number" id="setting-max-concurrency" class="form-input" min="1" max="5">
+          </div>
+
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+        </form>
+      </div>
+
+      <div class="stat-card" style="max-width: 700px; margin: 0 auto;">
+        <h3 style="margin-bottom: 0.5rem;">Demo & 270 Cameras Simulation</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+          Generate 270 realistic cameras across 10 NVRs to test UI speed, multi-filters, and simulated outages offline.
+        </p>
+        <button class="btn btn-primary" id="btn-seed-270">⚡ Populate 270 Mock Cameras</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add/Edit Camera Modal -->
+  <div id="camera-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Camera</h3>
+        <button class="btn btn-sm" id="btn-close-modal">✕</button>
+      </div>
+      <form id="camera-form">
+        <input type="hidden" id="form-cam-id">
+        <div class="form-group">
+          <label>Camera Name *</label>
+          <input type="text" id="form-cam-name" class="form-input" required placeholder="e.g. Main Gate Entry">
+        </div>
+        <div class="form-group">
+          <label>DVR / NVR Name</label>
+          <input type="text" id="form-cam-nvr" class="form-input" placeholder="e.g. NVR-Building-A">
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" id="form-cam-location" class="form-input" placeholder="e.g. Floor 2 Server Room">
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.5rem;">
+          <div class="form-group">
+            <label>Host / IP Address *</label>
+            <input type="text" id="form-cam-ip" class="form-input" required placeholder="192.168.1.10">
+          </div>
+          <div class="form-group">
+            <label>Port</label>
+            <input type="number" id="form-cam-port" class="form-input" value="554">
+          </div>
+          <div class="form-group">
+            <label>Channel #</label>
+            <input type="text" id="form-cam-ch" class="form-input" placeholder="01">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>RTSP Stream URL *</label>
+          <input type="text" id="form-cam-url" class="form-input" required placeholder="rtsp://admin:pass@192.168.1.10:554/ch1">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+          <button type="button" class="btn" id="btn-cancel-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-camera">Save Camera</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
