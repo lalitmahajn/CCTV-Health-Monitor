@@ -35,6 +35,19 @@ async def init_db(db_path: str = None):
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # NVR Metadata table
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS nvrs (
+                name TEXT PRIMARY KEY,
+                ip_address TEXT,
+                port INTEGER DEFAULT 554,
+                total_channels INTEGER DEFAULT 16,
+                used_channels INTEGER DEFAULT 0,
+                make TEXT,
+                model TEXT
+            )
+        """)
         
         # Incidents table
         await db.execute("""

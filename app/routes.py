@@ -2,7 +2,7 @@ import json
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File, Response, BackgroundTasks
 from pydantic import BaseModel
-from app.models import CameraRepository, IncidentRepository, SettingsRepository
+from app.models import CameraRepository, NvrRepository, IncidentRepository, SettingsRepository
 from app.csv_utils import parse_and_validate_csv, generate_csv_template, export_cameras_to_csv
 from app.simulator import seed_270_cameras
 
@@ -33,11 +33,16 @@ class OutageSimulate(BaseModel):
 def setup_routes(app):
     router = APIRouter()
     cam_repo = CameraRepository(app.state.db_path)
+    nvr_repo = NvrRepository(app.state.db_path)
     inc_repo = IncidentRepository(app.state.db_path)
     settings_repo = SettingsRepository(app.state.db_path)
     engine = app.state.engine
     alert_mgr = app.state.alert_manager
     web_notifier = app.state.web_notifier
+
+    @router.get("/nvrs")
+    async def get_nvrs():
+        return await nvr_repo.get_all()
 
     @router.get("/cameras")
     async def get_cameras(enabled_only: bool = False):

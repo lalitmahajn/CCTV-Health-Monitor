@@ -87,11 +87,20 @@ btnAudio.addEventListener("click", () => {
   }
 });
 
+let nvrMetadata = {};
+
 // Load Cameras
 async function loadCameras() {
   try {
-    const res = await fetch("/api/cameras");
-    cameras = await res.json();
+    const [camsRes, nvrsRes] = await Promise.all([
+      fetch("/api/cameras"),
+      fetch("/api/nvrs")
+    ]);
+    cameras = await camsRes.json();
+    const nvrsList = await nvrsRes.json();
+    nvrMetadata = {};
+    nvrsList.forEach(n => { nvrMetadata[n.name] = n; });
+
     updateStats();
     populateNvrFilter();
     renderNvrGroupedTables();
@@ -224,6 +233,11 @@ function renderNvrGroupedTables() {
       `;
     }).join("");
 
+    const meta = nvrMetadata[groupName] || {};
+    const totalPorts = meta.total_channels || totalInGroup;
+    const usedPorts = meta.used_channels || totalInGroup;
+    const freePorts = Math.max(0, totalPorts - usedPorts);
+
     return `
       <div class="${cardClass}" id="nvr-card-${CSS.escape(groupName)}">
         <div class="nvr-header" onclick="toggleNvrAccordion('${escapeHtml(groupName)}')">
@@ -231,6 +245,9 @@ function renderNvrGroupedTables() {
             <span class="nvr-chevron">▶</span>
             <span style="font-weight: 700; font-size: 0.95rem;">${escapeHtml(groupName)}</span>
             <span style="color: var(--text-muted); font-size: 0.8rem; font-family: monospace;">(${g.ip})</span>
+            <span style="background: rgba(255,255,255,0.06); padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.72rem; color: var(--text-secondary);">
+              Ports: ${usedPorts}/${totalPorts} in use ${freePorts > 0 ? `(${freePorts} free)` : '(Full)'}
+            </span>
           </div>
 
           <div class="nvr-badges">
@@ -370,20 +387,28 @@ function renderVisuals() {
     const warning = list.filter(c => c.status === "WARNING").length;
     const offline = list.filter(c => c.status === "OFFLINE").length;
 
-    const pctOnline = Math.round((online / total) * 100);
-    const pctWarning = Math.round((warning / total) * 100);
-    const pctOffline = Math.round((offline / total) * 100);
+    const meta = nvrMetadata[nvr] || {};
+    const totalPorts = meta.total_channels || total;
+    const usedPorts = meta.used_channels || total;
+    const freePorts = Math.max(0, totalPorts - usedPorts);
+
+    const pctOnline = Math.round((online / totalPorts) * 100);
+    const pctWarning = Math.round((warning / totalPorts) * 100);
+    const pctOffline = Math.round((offline / totalPorts) * 100);
+    const pctFree = Math.round((freePorts / totalPorts) * 100);
 
     return `
       <div>
         <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
           <span style="font-weight: 600;">${nvr}</span>
-          <span style="color: var(--text-muted);">${online}/${total} Online (${pctOnline}%)</span>
+          <span style="color: var(--text-muted); font-size: 0.76rem;">
+            ${online} Online • ${usedPorts}/${totalPorts} Ports Used (${freePorts} Free)
+          </span>
         </div>
         <div class="progress-bar-container">
-          <div class="progress-segment online" style="width: ${pctOnline}%;"></div>
-          <div class="progress-segment warning" style="width: ${pctWarning}%;"></div>
-          <div class="progress-segment offline" style="width: ${pctOffline}%;"></div>
+          <div class="progress-segment online" style="width: ${pctOnline}%;" title="${online} Online"></div>
+          <div class="progress-segment warning" style="width: ${pctWarning}%;" title="${warning} Warning"></div>
+          <div class="progress-segment offline" style="width: ${pctOffline}%;" title="${offline} Offline"></div>
         </div>
       </div>
     `;

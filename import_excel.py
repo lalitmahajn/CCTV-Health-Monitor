@@ -31,6 +31,8 @@ async def import_real_cameras():
     db_path = "cctv_monitor.db"
     await init_db(db_path)
     repo = CameraRepository(db_path)
+    from app.models import NvrRepository
+    nvr_repo = NvrRepository(db_path)
     
     # Clear current dummy cameras
     existing = await repo.get_all()
@@ -48,6 +50,10 @@ async def import_real_cameras():
         loc = ws_nvr.cell(r, 3).value
         local_ip = ws_nvr.cell(r, 7).value
         rtsp_port = ws_nvr.cell(r, 12).value
+        total_ch = ws_nvr.cell(r, 8).value
+        used_ch = ws_nvr.cell(r, 9).value
+        make = ws_nvr.cell(r, 4).value
+        model = ws_nvr.cell(r, 5).value
         
         if not loc:
             continue
@@ -63,11 +69,35 @@ async def import_real_cameras():
         except ValueError:
             port_int = 554
 
+        try:
+            total_ch_int = int(float(total_ch)) if total_ch else 16
+        except ValueError:
+            total_ch_int = 16
+
+        try:
+            used_ch_int = int(float(used_ch)) if used_ch else 0
+        except ValueError:
+            used_ch_int = 0
+
         nvrs[loc_str] = {
             'name': loc_str,
             'ip': ip_str,
-            'port': port_int
+            'port': port_int,
+            'total_channels': total_ch_int,
+            'used_channels': used_ch_int,
+            'make': str(make or ''),
+            'model': str(model or '')
         }
+
+        await nvr_repo.upsert(
+            name=loc_str,
+            ip_address=ip_str,
+            port=port_int,
+            total_channels=total_ch_int,
+            used_channels=used_ch_int,
+            make=str(make or ''),
+            model=str(model or '')
+        )
 
     print(f"Loaded {len(nvrs)} valid NVRs from NVR_Factory sheet:")
     for name, n in nvrs.items():

@@ -115,6 +115,32 @@ class CameraRepository:
             return cursor.rowcount > 0
 
 
+class NvrRepository:
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path
+
+    async def upsert(self, name: str, ip_address: str, port: int, total_channels: int, used_channels: int, make: str = "", model: str = ""):
+        async with get_db(self.db_path) as db:
+            await db.execute("""
+                INSERT INTO nvrs (name, ip_address, port, total_channels, used_channels, make, model)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    ip_address = excluded.ip_address,
+                    port = excluded.port,
+                    total_channels = excluded.total_channels,
+                    used_channels = excluded.used_channels,
+                    make = excluded.make,
+                    model = excluded.model
+            """, (name, ip_address, port, total_channels, used_channels, make, model))
+            await db.commit()
+
+    async def get_all(self) -> List[Dict[str, Any]]:
+        async with get_db(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM nvrs ORDER BY name ASC") as cursor:
+                rows = await cursor.fetchall()
+                return [dict(r) for r in rows]
+
 class IncidentRepository:
     def __init__(self, db_path: str = None):
         self.db_path = db_path
