@@ -157,6 +157,47 @@ class NvrRepository:
                 rows = await cursor.fetchall()
                 return [dict(r) for r in rows]
 
+    async def rename(self, old_name: str, new_name: str) -> int:
+        old_name = old_name.strip()
+        new_name = new_name.strip()
+        if not old_name or not new_name:
+            raise ValueError("Recorder name cannot be empty.")
+        if old_name == new_name:
+            return 0
+
+        async with get_db(self.db_path) as db:
+            # Check collision with other NVR with different name
+            async with db.execute("SELECT name FROM nvrs WHERE LOWER(name) = LOWER(?) AND LOWER(name) != LOWER(?)", (new_name, old_name)) as cursor:
+                collision = await cursor.fetchone()
+                if collision:
+                    raise ValueError(f"A recorder named '{collision[0]}' already exists.")
+
+            # Update cameras table for all matching cameras
+            cursor_cams = await db.execute(
+                "UPDATE cameras SET dvr_nvr_name = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(dvr_nvr_name) = LOWER(?)",
+                (new_name, old_name)
+            )
+            cams_updated = cursor_cams.rowcount
+
+            # Update nvrs table entry
+            cursor_nvrs = await db.execute(
+                "UPDATE nvrs SET name = ? WHERE LOWER(name) = LOWER(?)",
+                (new_name, old_name)
+            )
+            if cursor_nvrs.rowcount == 0:
+                # If entry was not in nvrs table, insert it using attributes from updated cameras
+                async with db.execute("SELECT ip_address, port FROM cameras WHERE LOWER(dvr_nvr_name) = LOWER(?) LIMIT 1", (new_name,)) as c_cur:
+                    row = await c_cur.fetchone()
+                    ip = row[0] if row else "127.0.0.1"
+                    port = row[1] if row else 554
+                await db.execute("""
+                    INSERT INTO nvrs (name, ip_address, port, total_channels, used_channels)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (new_name, ip, port, 16, cams_updated))
+
+            await db.commit()
+            return cams_updated
+
 class IncidentRepository:
     def __init__(self, db_path: str = None):
         self.db_path = db_path

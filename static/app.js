@@ -308,6 +308,12 @@ function renderNvrGroupedTables() {
           <div class="nvr-title-group">
             <span class="nvr-chevron">▶</span>
             <span style="font-weight: 700; font-size: 0.95rem;">${escapeHtml(groupName)}</span>
+            ${groupName !== 'Direct IP / Unassigned' ? `
+              <button class="btn-nvr-rename" onclick="event.stopPropagation(); openRenameNvrModal('${escapeHtml(groupName)}')" title="Rename recorder and all attached cameras">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Rename
+              </button>
+            ` : ''}
             <span style="color: var(--text-muted); font-size: 0.8rem; font-family: monospace;">(${g.ip})</span>
             <span style="background: rgba(255,255,255,0.06); padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.72rem; color: var(--text-secondary);">
               Ports: ${usedPorts}/${totalPorts} in use ${freePorts > 0 ? `(${freePorts} free)` : '(Full)'}
@@ -731,6 +737,15 @@ document.getElementById("btn-add-camera").addEventListener("click", () => {
   document.getElementById("camera-form").reset();
   document.getElementById("form-cam-id").value = "";
   document.getElementById("form-cam-nocam").checked = false;
+
+  const nvrInput = document.getElementById("form-cam-nvr");
+  nvrInput.readOnly = false;
+  nvrInput.style.cursor = "text";
+  nvrInput.style.opacity = "1";
+  nvrInput.removeAttribute("title");
+  const hint = document.getElementById("form-cam-nvr-hint");
+  if (hint) hint.style.display = "none";
+
   modal.classList.add("active");
 });
 
@@ -779,7 +794,16 @@ window.editCamera = function(id) {
   document.getElementById("modal-title").textContent = "Edit Camera";
   document.getElementById("form-cam-id").value = c.id;
   document.getElementById("form-cam-name").value = c.name;
-  document.getElementById("form-cam-nvr").value = c.dvr_nvr_name || "";
+
+  const nvrInput = document.getElementById("form-cam-nvr");
+  nvrInput.value = c.dvr_nvr_name || "";
+  nvrInput.readOnly = true;
+  nvrInput.style.cursor = "not-allowed";
+  nvrInput.style.opacity = "0.75";
+  nvrInput.title = "Recorder name is managed per-NVR. Use Rename on Dashboard to rename this recorder across all cameras.";
+  const hint = document.getElementById("form-cam-nvr-hint");
+  if (hint) hint.style.display = "block";
+
   document.getElementById("form-cam-location").value = c.location || "";
   document.getElementById("form-cam-ip").value = c.ip_address;
   document.getElementById("form-cam-port").value = c.port || 554;
@@ -788,6 +812,73 @@ window.editCamera = function(id) {
   document.getElementById("form-cam-nocam").checked = !!c.is_no_cam;
   modal.classList.add("active");
 };
+
+// NVR Rename Modal Handlers
+window.openRenameNvrModal = function(nvrName) {
+  const nvrCams = cameras.filter(c => (c.dvr_nvr_name || "").toLowerCase() === nvrName.toLowerCase());
+  document.getElementById("rename-nvr-old-name").value = nvrName;
+  document.getElementById("rename-nvr-new-name").value = nvrName;
+  document.getElementById("rename-nvr-title").textContent = `Rename Recorder: ${nvrName}`;
+  document.getElementById("rename-nvr-cam-count").textContent = `${nvrCams.length} cameras`;
+  document.getElementById("rename-nvr-modal").classList.add("active");
+  setTimeout(() => {
+    const input = document.getElementById("rename-nvr-new-name");
+    input.focus();
+    input.select();
+  }, 100);
+};
+
+document.getElementById("btn-close-rename-nvr").addEventListener("click", () => {
+  document.getElementById("rename-nvr-modal").classList.remove("active");
+});
+document.getElementById("btn-cancel-rename-nvr").addEventListener("click", () => {
+  document.getElementById("rename-nvr-modal").classList.remove("active");
+});
+
+document.getElementById("rename-nvr-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const oldName = document.getElementById("rename-nvr-old-name").value.trim();
+  const newName = document.getElementById("rename-nvr-new-name").value.trim();
+  if (!newName) {
+    alert("Please enter a valid recorder name.");
+    return;
+  }
+  if (oldName === newName) {
+    document.getElementById("rename-nvr-modal").classList.remove("active");
+    return;
+  }
+
+  const btn = document.getElementById("btn-submit-rename-nvr");
+  btn.disabled = true;
+  btn.textContent = "Renaming...";
+
+  try {
+    const res = await fetch(`/api/nvrs/${encodeURIComponent(oldName)}/rename`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ new_name: newName })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || "Rename failed");
+    }
+
+    // Preserve accordion open state
+    if (nvrAccordionState[oldName]) {
+      nvrAccordionState[newName] = true;
+      delete nvrAccordionState[oldName];
+    }
+
+    showToast("Recorder Renamed", data.message, false);
+    document.getElementById("rename-nvr-modal").classList.remove("active");
+    await loadCameras();
+  } catch (err) {
+    alert("Error renaming recorder: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Rename All Cameras";
+  }
+});
 
 window.deleteCamera = async function(id) {
   if (!confirm("Are you sure you want to delete this camera?")) return;

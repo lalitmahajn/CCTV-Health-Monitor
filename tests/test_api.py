@@ -67,5 +67,20 @@ async def test_api_camera_endpoints(tmp_path):
         assert res_toggle_back.status_code == 200
         assert res_toggle_back.json()["is_no_cam"] == 0
 
+        # Rename NVR across all cameras
+        # "NVR-01-MainAdmin" was created by seed-270 (27 cameras)
+        res_rename = await client.post("/api/nvrs/NVR-01-MainAdmin/rename", json={"new_name": "Main Gate NVR"})
+        assert res_rename.status_code == 200
+        data = res_rename.json()
+        assert data["new_name"] == "Main Gate NVR"
+        assert data["cameras_updated"] == 27
+
+        # Verify cameras reflect the new name
+        cams_after = (await client.get("/api/cameras")).json()
+        renamed_cams = [c for c in cams_after if c["dvr_nvr_name"] == "Main Gate NVR"]
+        assert len(renamed_cams) == 27
+
+
+
 
 

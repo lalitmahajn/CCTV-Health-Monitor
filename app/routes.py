@@ -32,6 +32,9 @@ class OutageSimulate(BaseModel):
     camera_id: int
     error_reason: Optional[str] = "Simulated Connection Timeout"
 
+class NvrRename(BaseModel):
+    new_name: str
+
 def setup_routes(app):
     router = APIRouter()
     cam_repo = CameraRepository(app.state.db_path)
@@ -45,6 +48,22 @@ def setup_routes(app):
     @router.get("/nvrs")
     async def get_nvrs():
         return await nvr_repo.get_all()
+
+    @router.post("/nvrs/{nvr_name}/rename")
+    async def rename_nvr(nvr_name: str, payload: NvrRename):
+        new_name = payload.new_name.strip()
+        if not new_name:
+            raise HTTPException(status_code=400, detail="New recorder name cannot be empty")
+        try:
+            updated_cams = await nvr_repo.rename(nvr_name, new_name)
+            return {
+                "message": f"Recorder renamed to '{new_name}' across {updated_cams} cameras.",
+                "old_name": nvr_name,
+                "new_name": new_name,
+                "cameras_updated": updated_cams
+            }
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
     @router.post("/nvrs/{nvr_name}/audit-channels")
     async def audit_nvr_channels(nvr_name: str):
