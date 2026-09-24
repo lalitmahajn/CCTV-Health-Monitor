@@ -1,0 +1,37 @@
+# Bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Databases and data
+*.db
+*.sqlite
+*.sqlite3
+cctv_monitor.db
+
+# Proprietary spreadsheets / plant data
+*.xlsx
+*.xls
+!test_data/*.xlsx
+
+# Snapshot captures and test artifacts
+static/snapshots/*.jpg
+static/snapshots/*.png
+test_*.jpg
+test_*.png
+
+# Tooling / Agent artifacts
+.playwright-mcp/
+.agents/
+.claude/
+.superpowers/
+agent/
+scratch_ponytail/
+skills-lock.json
+
+# Environment and secrets
+.env
+.venv/
+venv/
+ENV/
