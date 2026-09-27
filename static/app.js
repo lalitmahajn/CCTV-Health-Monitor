@@ -105,6 +105,7 @@ async function loadCameras() {
     populateNvrFilter();
     renderNvrGroupedTables();
     renderInventoryTable();
+    renderVisuals();
   } catch (e) {
     console.error("Failed to load cameras", e);
   }
@@ -429,12 +430,12 @@ function renderVisuals() {
       const status = isNoCam ? 'NO_CAM' : (c.status || 'UNKNOWN');
       const ch = c.channel_no ? c.channel_no : (idx + 1);
       const title = isNoCam 
-        ? `${c.name || 'No Cam'} (Ch ${ch})\nNVR: ${bay.name}\nStatus: Spare / Empty Port (Click to unmark)` 
-        : `${c.name || 'Cam'} (Ch ${ch})\nNVR: ${bay.name}\nStatus: ${status}\nLocation: ${c.location || 'N/A'}\nIP: ${c.ip_address}:${c.port || 554}\nLatency: ${c.latency_ms || 0}ms\nError: ${c.last_error || 'None'}`;
+        ? `${c.name || 'Spare Channel'} (Ch ${ch}) • NO CAM (Spare Port)\nClick to inspect, snap, or restore to active` 
+        : `${c.name || 'Camera'} (Ch ${ch}) • ${status}\nClick to inspect, snap, test connection, or toggle No Cam`;
       return `
         <div class="heatmap-cell status-${status}" 
              title="${title}" 
-             onclick="${isNoCam ? `toggleNoCam(${c.id})` : `checkCamera(${c.id})`}">
+             onclick="openCameraQuickModal(${c.id})">
           ${ch}
         </div>
       `;
@@ -1189,5 +1190,128 @@ window.takeSnapshot = async function(id) {
     subtitle.textContent = "Error capturing stream";
   }
 };
+
+// Camera Quick Action Modal (Bird's-Eye Heatmap Interaction)
+const quickModal = document.getElementById("camera-quick-modal");
+const btnCloseQuickModal = document.getElementById("btn-close-quick-modal");
+const btnDoneQuickModal = document.getElementById("btn-done-quick-modal");
+
+if (btnCloseQuickModal) {
+  btnCloseQuickModal.addEventListener("click", () => {
+    if (quickModal) quickModal.classList.remove("active");
+  });
+}
+
+if (btnDoneQuickModal) {
+  btnDoneQuickModal.addEventListener("click", () => {
+    if (quickModal) quickModal.classList.remove("active");
+  });
+}
+
+if (quickModal) {
+  quickModal.addEventListener("click", (e) => {
+    if (e.target === quickModal) {
+      quickModal.classList.remove("active");
+    }
+  });
+}
+
+window.openCameraQuickModal = function(id) {
+  const cam = cameras.find(c => c.id === id);
+  if (!cam) return;
+
+  const isNoCam = !!cam.is_no_cam;
+  const ch = cam.channel_no ? cam.channel_no : '---';
+
+  const nameEl = document.getElementById("quick-cam-name");
+  const subEl = document.getElementById("quick-cam-sub");
+  const detailsEl = document.getElementById("quick-cam-details");
+  const btnSnap = document.getElementById("btn-quick-snap");
+  const btnCheck = document.getElementById("btn-quick-check");
+  const btnToggle = document.getElementById("btn-quick-toggle-nocam");
+  const hintEl = document.getElementById("quick-cam-hint");
+
+  nameEl.innerHTML = `${escapeHtml(cam.name || 'Camera')} <span style="font-weight: 400; color: var(--text-muted); font-size: 0.85rem;">(Ch ${ch})</span>`;
+  subEl.innerHTML = `Recorder: <strong style="color: var(--text-primary);">${escapeHtml(cam.dvr_nvr_name || 'Direct IP')}</strong> • Location: <strong style="color: var(--text-primary);">${escapeHtml(cam.location || 'N/A')}</strong>`;
+
+  const statusBadge = isNoCam 
+    ? `<span class="badge" style="border: 1px dashed rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); color: var(--text-muted);">SPARE / NO CAM</span>`
+    : `<span class="badge ${cam.status ? cam.status.toLowerCase() : 'offline'}">${cam.status || 'UNKNOWN'}</span>`;
+
+  detailsEl.innerHTML = `
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; background: var(--bg-primary); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-subtle); margin-top: 0.5rem;">
+      <div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Monitoring State</div>
+        <div style="margin-top: 0.25rem;">${statusBadge}</div>
+      </div>
+      <div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Network Target</div>
+        <div style="font-family: monospace; font-size: 0.8rem; margin-top: 0.25rem;">${escapeHtml(cam.ip_address || '---')}:${cam.port || 554}</div>
+      </div>
+      <div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Roundtrip Latency</div>
+        <div style="font-size: 0.8rem; margin-top: 0.25rem; font-weight: 500;">${cam.latency_ms ? cam.latency_ms + ' ms' : '---'}</div>
+      </div>
+      <div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Last Health Diagnostic</div>
+        <div style="font-size: 0.75rem; margin-top: 0.25rem; color: ${cam.last_error ? 'var(--status-offline)' : 'var(--text-secondary)'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(cam.last_error || '')}">
+          ${escapeHtml(cam.last_error || (isNoCam ? 'Ignored from outage alerts' : 'Normal / OK'))}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Action: Live Snapshot
+  btnSnap.onclick = () => {
+    quickModal.classList.remove("active");
+    takeSnapshot(cam.id);
+  };
+
+  // Action: Test Ping
+  btnCheck.onclick = async () => {
+    btnCheck.disabled = true;
+    btnCheck.textContent = "Checking...";
+    try {
+      await checkCamera(cam.id);
+      openCameraQuickModal(cam.id);
+    } finally {
+      btnCheck.disabled = false;
+      btnCheck.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Test Connection
+      `;
+    }
+  };
+
+  // Action: Toggle No Cam
+  if (isNoCam) {
+    btnToggle.className = "btn btn-sm";
+    btnToggle.style.color = "#60a5fa";
+    btnToggle.style.borderColor = "rgba(96, 165, 250, 0.4)";
+    btnToggle.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+      Restore to Active Camera
+    `;
+    hintEl.innerHTML = `ℹ️ This channel is currently designated <strong>"No Cam" (Spare)</strong>. It is isolated from offline alerts and uptime stats. Click <em>Restore to Active Camera</em> to monitor this port.`;
+  } else {
+    btnToggle.className = "btn btn-sm";
+    btnToggle.style.color = "var(--text-muted)";
+    btnToggle.style.borderColor = "var(--border-subtle)";
+    btnToggle.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      Mark as "No Cam" (Spare)
+    `;
+    hintEl.innerHTML = `ℹ️ "No Cam" designates an empty or spare port on this recorder. Marking it as "No Cam" prevents false offline alarms and isolates unused ports from plant health statistics.`;
+  }
+
+  btnToggle.onclick = async () => {
+    quickModal.classList.remove("active");
+    await toggleNoCam(cam.id);
+    renderVisuals();
+  };
+
+  quickModal.classList.add("active");
+};
+
 
 

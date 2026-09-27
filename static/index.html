@@ -112,18 +112,22 @@
           <h3 style="font-size: 1.15rem; font-weight: 700;">Fleet Status Matrix & Visual Analytics</h3>
           <div style="font-size: 0.8rem; color: var(--text-muted);">Real-time visual health across all recorders, locations, and network latency</div>
         </div>
-        <div style="display: flex; gap: 0.75rem; align-items: center; font-size: 0.82rem;">
-          <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span class="status-dot online"></span> Online</span>
-          <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span class="status-dot warning"></span> Warning</span>
-          <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span class="status-dot offline"></span> Offline</span>
+        <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.82rem; flex-wrap: wrap;">
+          <span style="display: inline-flex; align-items: center; gap: 0.35rem;"><span class="status-dot online"></span> Online</span>
+          <span style="display: inline-flex; align-items: center; gap: 0.35rem;"><span class="status-dot warning"></span> Warning</span>
+          <span style="display: inline-flex; align-items: center; gap: 0.35rem;"><span class="status-dot offline"></span> Offline</span>
+          <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+            <span style="display: inline-block; width: 14px; height: 14px; border: 1px dashed rgba(255,255,255,0.45); background: rgba(255,255,255,0.06); border-radius: 3px;"></span>
+            No Cam (Spare)
+          </span>
         </div>
       </div>
 
       <!-- 1. Full 270 Camera Bird's-Eye Heatmap Grid Grouped by NVR -->
       <div class="stat-card" style="margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 0.95rem; font-weight: 600;">270-Camera Bird's-Eye Rack Bays (Grouped by NVR / DVR)</h4>
-          <span style="font-size: 0.75rem; color: var(--text-muted);">Hover cell for camera details • Click to test channel</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h4 style="font-size: 0.95rem; font-weight: 600; margin: 0;">270-Camera Bird's-Eye Rack Bays (Grouped by NVR / DVR)</h4>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Click any camera square to Inspect, Snap, Test Ping, or Toggle "No Cam"</span>
         </div>
         <div id="heatmap-grid" class="heatmap-rack-container">
           <!-- Rendered dynamically grouped by NVR -->
@@ -415,6 +419,47 @@
     </div>
   </div>
 
+  <!-- Camera Quick Action Modal (from Heatmap clicks) -->
+  <div id="camera-quick-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header" style="margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        <div>
+          <h3 id="quick-cam-name" style="margin: 0; font-size: 1.05rem; font-weight: 700;">Camera Details</h3>
+          <div id="quick-cam-sub" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;"></div>
+        </div>
+        <button class="btn btn-sm" id="btn-close-quick-modal">✕</button>
+      </div>
+
+      <div id="quick-cam-details" style="font-size: 0.82rem; margin-bottom: 1.25rem;">
+        <!-- Filled dynamically -->
+      </div>
+
+      <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.85rem; margin-bottom: 1.25rem;">
+        <div style="font-weight: 600; font-size: 0.78rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Direct Actions:</div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-sm" id="btn-quick-snap" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Live Snapshot
+          </button>
+          <button class="btn btn-sm" id="btn-quick-check" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Test Connection
+          </button>
+          <button class="btn btn-sm" id="btn-quick-toggle-nocam" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+            <!-- Dynamically populated: Mark as No Cam / Restore to Active -->
+          </button>
+        </div>
+        <div id="quick-cam-hint" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.35;">
+          ℹ️ "No Cam" designates an empty/spare channel on this recorder. It prevents false offline alarms and isolates spare ports from plant health stats.
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button type="button" class="btn" id="btn-done-quick-modal">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Rename NVR Modal -->
   <div id="rename-nvr-modal" class="modal-overlay">
     <div class="modal-box" style="max-width: 460px;">
@@ -443,6 +488,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=2.1"></script>
 </body>
 </html>
