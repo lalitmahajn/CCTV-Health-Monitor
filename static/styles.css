@@ -155,8 +155,11 @@ header {
   font-weight: 500;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
   transition: all 0.15s ease;
+  height: 33px;
+  box-sizing: border-box;
 }
 
 .btn:hover {
@@ -261,6 +264,24 @@ main {
   margin-bottom: 1.5rem;
 }
 
+.search-input-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  width: 14px;
+  height: 14px;
+  z-index: 1;
+}
+
 .search-input {
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
@@ -270,6 +291,14 @@ main {
   font-size: 0.82rem;
   min-width: 280px;
   transition: all 0.15s;
+  height: 33px;
+  box-sizing: border-box;
+}
+
+.search-input-wrapper .search-input {
+  min-width: 0;
+  width: 100%;
+  padding-left: 2.2rem;
 }
 
 .search-input:focus {
