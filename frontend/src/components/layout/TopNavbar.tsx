@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import type { ActiveTab } from '@/hooks/useCameraFleet';
 import type { SSEConnectionStatus } from '@/hooks/useSSELiveStream';
 import * as api from '@/lib/api';
+import { useTimeFormat, formatTime } from '@/lib/timeUtils';
 
 interface TopNavbarProps {
   activeTab: ActiveTab;
@@ -54,6 +55,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [timeFormat] = useTimeFormat();
 
   const handleScanAll = async () => {
     try {
@@ -114,7 +116,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             </span>
             <div 
               className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/80 text-[10px] font-mono text-muted-foreground"
-              title={lastHeartbeat ? `Heartbeat: ${lastHeartbeat.toLocaleTimeString()}` : undefined}
+              title={lastHeartbeat ? `Heartbeat: ${formatTime(lastHeartbeat, timeFormat, true)}` : undefined}
             >
               <span className={cn(
                 "w-1.5 h-1.5 rounded-full",

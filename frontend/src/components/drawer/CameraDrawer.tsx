@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { Camera } from '@/lib/types';
 import * as api from '@/lib/api';
+import { useTimeFormat, formatTime } from '@/lib/timeUtils';
 
 interface CameraDrawerProps {
   camera: Camera | null;
@@ -45,6 +46,7 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
 }) => {
   const [isPinging, setIsPinging] = useState(false);
   const [pingResult, setPingResult] = useState<{ status: string; message: string; latency_ms?: number } | null>(null);
+  const [timeFormat] = useTimeFormat();
 
   const [isCapturing, setIsCapturing] = useState(false);
   const [snapshotData, setSnapshotData] = useState<{ url: string; intensity?: number; captured_at?: string } | null>(null);
@@ -251,7 +253,7 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
 
               {/* Timestamp tag */}
               <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur text-[10px] font-mono text-white/90">
-                {snapshotData?.captured_at || new Date().toLocaleTimeString()}
+                {snapshotData?.captured_at ? formatTime(snapshotData.captured_at, timeFormat, true) : formatTime(new Date(), timeFormat, true)}
               </div>
             </div>
 
@@ -283,10 +285,11 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
               <Activity className="w-4 h-4 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <div className="font-semibold">{pingResult.status}: {pingResult.message}</div>
-                <div className="text-[10px] opacity-75 mt-0.5">{new Date().toLocaleTimeString()}</div>
+                <div className="text-[10px] opacity-75 mt-0.5">{formatTime(new Date(), timeFormat, true)}</div>
               </div>
             </div>
           )}
+
 
           {/* 4. Stream & Network Specifications Card */}
           <Card className="border-border/60 shadow-none">
@@ -324,7 +327,7 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
                 <div>
                   <span className="text-[11px] text-muted-foreground block">Last Verified</span>
                   <span className="text-muted-foreground truncate block">
-                    {camera.last_checked ? new Date(camera.last_checked).toLocaleTimeString() : 'Recent'}
+                    {camera.last_checked ? formatTime(camera.last_checked, timeFormat) : 'Recent'}
                   </span>
                 </div>
               </div>

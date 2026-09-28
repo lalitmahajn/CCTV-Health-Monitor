@@ -3,6 +3,7 @@ import { AlertOctagon, CheckCircle2, ChevronRight, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Incident, Camera } from '@/lib/types';
+import { useTimeFormat, formatTime } from '@/lib/timeUtils';
 
 interface CriticalOutageBannerProps {
   activeIncidents: Incident[];
@@ -17,9 +18,12 @@ export const CriticalOutageBanner: React.FC<CriticalOutageBannerProps> = ({
   onInspectCamera,
   cameras,
 }) => {
+  const [timeFormat] = useTimeFormat();
+
   if (activeIncidents.length === 0) {
     return null;
   }
+
 
   const cameraMap = new Map<number, Camera>(cameras.map((c) => [c.id, c]));
 
@@ -64,8 +68,9 @@ export const CriticalOutageBanner: React.FC<CriticalOutageBannerProps> = ({
                     </span>
                   </div>
                   <div className="text-[11px] text-red-400/90 font-mono">
-                    {incident.error_reason || 'RTSP Handshake Timeout / Device Unreachable'} • Started {new Date(incident.started_at).toLocaleTimeString()}
+                    {incident.error_reason || 'RTSP Handshake Timeout / Device Unreachable'} • Started {formatTime(incident.started_at, timeFormat)}
                   </div>
+
                 </div>
               </div>
 

@@ -97,6 +97,7 @@ async def init_db(db_path: str = None):
             ("smtp_password", "", "SMTP password or app password"),
             ("smtp_use_tls", "true", "Use TLS/STARTTLS for SMTP connection"),
             ("email_recipients", "", "Comma-separated list of alert recipients"),
+            ("time_format", "12h", "Display time format: 12h or 24h"),
         ]
 
         

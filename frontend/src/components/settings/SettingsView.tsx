@@ -15,9 +15,12 @@ import {
   ChevronUp,
   Lock,
   ShieldCheck,
-  FlaskConical
+  FlaskConical,
+  Clock
 } from 'lucide-react';
 import * as api from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { useTimeFormat, getTimezoneInfo, formatTime, type TimeFormat } from '@/lib/timeUtils';
 
 interface SettingsViewProps {
   onFleetReload: () => void;
@@ -42,6 +45,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onFleetReload }) => 
   const [isSeeding, setIsSeeding] = useState(false);
   const [seedStatus, setSeedStatus] = useState<string | null>(null);
 
+  // Time format state & live preview clock
+  const [timeFormat, setTimeFormatState] = useTimeFormat();
+  const [clockNow, setClockNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setClockNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const tzInfo = React.useMemo(() => getTimezoneInfo(), []);
+  const liveTime12h = formatTime(clockNow, '12h', true);
+  const liveTime24h = formatTime(clockNow, '24h', true);
+
+  const handleTimeFormatChange = async (fmt: TimeFormat) => {
+    setTimeFormatState(fmt);
+    handleChange('time_format', fmt);
+    try {
+      await api.updateSettings({ time_format: fmt });
+    } catch (e) {
+      console.warn('Could not persist time format:', e);
+    }
+  };
+
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -50,6 +77,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onFleetReload }) => 
     try {
       const data = await api.fetchSettings();
       setSettings(data);
+      if (data.time_format === '12h' || data.time_format === '24h') {
+        setTimeFormatState(data.time_format);
+      }
     } catch (e) {
       console.warn('Could not load settings:', e);
     }
@@ -192,8 +222,110 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onFleetReload }) => 
           </CardContent>
         </Card>
 
-        {/* 2. Email Notifications — Collapsible */}
+        {/* 2. Time & Regional Display */}
         <Card className="border-border/80 shadow-xs">
+          <CardHeader className="p-4 pb-2 border-b border-border/40">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                <span>Time & Regional Display</span>
+              </CardTitle>
+              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground border-border/60">
+                {tzInfo.offset} • {tzInfo.name}
+              </Badge>
+            </div>
+            <CardDescription className="text-xs">
+              Configure clock display and timestamp formatting across the fleet dashboard, uptime charts, and incident logs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4 text-xs">
+            <div>
+              <label className="block text-muted-foreground mb-2 font-medium">
+                Select Time Format
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 12-Hour Option */}
+                <button
+                  type="button"
+                  data-testid="time-format-12h"
+                  onClick={() => handleTimeFormatChange('12h')}
+                  className={cn(
+                    "flex items-start justify-between p-3.5 rounded-lg border text-left cursor-pointer transition-all w-full",
+                    timeFormat === '12h'
+                      ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/40 shadow-xs"
+                      : "border-border/60 hover:border-border hover:bg-muted/30 text-muted-foreground"
+                  )}
+                >
+                  <div className="space-y-1">
+                    <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                      <span>12-Hour Format</span>
+                      {timeFormat === '12h' && (
+                        <Badge variant="default" className="text-[9px] h-4 px-1.5 font-normal">Active</Badge>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">Standard 12h clock with AM/PM indicator</div>
+                    <div className="font-mono text-[11px] text-primary pt-1 flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground">Live Preview:</span>
+                      <span className="font-semibold">{liveTime12h}</span>
+                    </div>
+                  </div>
+                  <div className={cn(
+                    "w-4 h-4 rounded-full border flex items-center justify-center mt-0.5 shrink-0",
+                    timeFormat === '12h' ? "border-primary bg-primary/10" : "border-muted-foreground/40"
+                  )}>
+                    {timeFormat === '12h' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                </button>
+
+                {/* 24-Hour Option */}
+                <button
+                  type="button"
+                  data-testid="time-format-24h"
+                  onClick={() => handleTimeFormatChange('24h')}
+                  className={cn(
+                    "flex items-start justify-between p-3.5 rounded-lg border text-left cursor-pointer transition-all w-full",
+                    timeFormat === '24h'
+                      ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/40 shadow-xs"
+                      : "border-border/60 hover:border-border hover:bg-muted/30 text-muted-foreground"
+                  )}
+                >
+                  <div className="space-y-1">
+                    <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                      <span>24-Hour Format</span>
+                      {timeFormat === '24h' && (
+                        <Badge variant="default" className="text-[9px] h-4 px-1.5 font-normal">Active</Badge>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">Industrial 24h standard (00:00 - 23:59)</div>
+                    <div className="font-mono text-[11px] text-primary pt-1 flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground">Live Preview:</span>
+                      <span className="font-semibold">{liveTime24h}</span>
+                    </div>
+                  </div>
+                  <div className={cn(
+                    "w-4 h-4 rounded-full border flex items-center justify-center mt-0.5 shrink-0",
+                    timeFormat === '24h' ? "border-primary bg-primary/10" : "border-muted-foreground/40"
+                  )}>
+                    {timeFormat === '24h' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                </button>
+              </div>
+
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                Detected Client Timezone
+              </span>
+              <span className="font-mono font-medium text-foreground">{tzInfo.name} ({tzInfo.offset})</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 3. Email Notifications — Collapsible */}
+        <Card className="border-border/80 shadow-xs">
+
           <CardHeader className="p-4 pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

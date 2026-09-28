@@ -16,6 +16,7 @@ import {
 import { Activity, ShieldCheck, Loader2, HelpCircle, ArrowDownRight } from 'lucide-react';
 import { fetchFleetUptimeHistory } from '@/lib/api';
 import type { FleetUptimeHistoryResponse, UptimeDataPoint, UptimePeriod } from '@/lib/types';
+import { useTimeFormat, formatChartLabel, formatTooltipDateTime } from '@/lib/timeUtils';
 
 interface FleetUptimeChartProps {
   currentOnlineCount?: number;
@@ -32,42 +33,6 @@ const PERIOD_PRESETS: { key: UptimePeriod; label: string }[] = [
   { key: '90d', label: '90d' },
 ];
 
-const formatPointTime = (timestamp: string, period: UptimePeriod): string => {
-  try {
-    const d = new Date(timestamp);
-    if (isNaN(d.getTime())) return timestamp;
-
-    if (period === '1h' || period === '6h' || period === '24h') {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    }
-    if (period === '7d') {
-      const monthDay = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-      return `${monthDay} ${time}`;
-    }
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  } catch {
-    return timestamp;
-  }
-};
-
-const formatTooltipTime = (timestamp: string): string => {
-  try {
-    const d = new Date(timestamp);
-    if (isNaN(d.getTime())) return timestamp;
-    return d.toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return timestamp;
-  }
-};
-
 export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
   currentOnlineCount,
   activeProvisionedCount,
@@ -78,6 +43,7 @@ export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const gradientId = useId();
+  const [timeFormat] = useTimeFormat();
 
   const loadData = React.useCallback(async (p: UptimePeriod, isSilent = false) => {
     try {
@@ -112,8 +78,8 @@ export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
     if (!history?.data_points) return [];
     const points = history.data_points.map((pt) => ({
       ...pt,
-      label: formatPointTime(pt.timestamp, period),
-      tooltipLabel: formatTooltipTime(pt.timestamp),
+      label: formatChartLabel(pt.timestamp, period, timeFormat),
+      tooltipLabel: formatTooltipDateTime(pt.timestamp, timeFormat),
       total: totalActive,
       offline: Math.max(0, totalActive - pt.operating),
     }));
@@ -128,7 +94,7 @@ export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
       };
     }
     return points;
-  }, [history, period, currentOnlineCount, currentOperating, currentOffline, totalActive]);
+  }, [history, period, timeFormat, currentOnlineCount, currentOperating, currentOffline, totalActive]);
 
   const uptimePct = totalActive > 0 
     ? ((currentOperating / totalActive) * 100).toFixed(1) 

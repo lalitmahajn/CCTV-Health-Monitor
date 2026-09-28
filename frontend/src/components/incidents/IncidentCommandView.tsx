@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { Incident, Camera } from '@/lib/types';
+import { useTimeFormat, formatDateTime, parseUtcDate } from '@/lib/timeUtils';
 
 interface IncidentCommandViewProps {
   activeIncidents: Incident[];
@@ -32,6 +33,7 @@ export const IncidentCommandView: React.FC<IncidentCommandViewProps> = ({
 }) => {
   const [filterMode, setFilterMode] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
   const [search, setSearch] = useState('');
+  const [timeFormat] = useTimeFormat();
 
   const cameraMap = new Map<number, Camera>(cameras.map((c) => [c.id, c]));
 
@@ -54,13 +56,16 @@ export const IncidentCommandView: React.FC<IncidentCommandViewProps> = ({
       return `${mins}m ${remSec}s`;
     }
     if (startedAt) {
-      const elapsedSec = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+      const startDt = parseUtcDate(startedAt);
+      if (!startDt) return '--';
+      const elapsedSec = Math.max(0, Math.floor((Date.now() - startDt.getTime()) / 1000));
       if (elapsedSec < 60) return `${elapsedSec}s`;
       const mins = Math.floor(elapsedSec / 60);
       return `${mins}m`;
     }
     return '--';
   };
+
 
   return (
     <div className="space-y-6">
@@ -196,17 +201,18 @@ export const IncidentCommandView: React.FC<IncidentCommandViewProps> = ({
                         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground mt-1.5 font-mono">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3 text-primary" />
-                            Started: {new Date(incident.started_at).toLocaleString()}
+                            Started: {formatDateTime(incident.started_at, timeFormat)}
                           </span>
                           {incident.resolved_at && (
                             <span>
-                              Resolved: {new Date(incident.resolved_at).toLocaleString()}
+                              Resolved: {formatDateTime(incident.resolved_at, timeFormat)}
                             </span>
                           )}
                           <span>
                             Downtime: {formatDuration(incident.duration_seconds, incident.started_at)}
                           </span>
                         </div>
+
                       </div>
                     </div>
 
