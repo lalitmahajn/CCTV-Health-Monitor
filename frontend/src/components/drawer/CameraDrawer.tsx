@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
   Camera as CameraIcon,
   MapPin,
@@ -19,7 +20,9 @@ import {
   Radio,
   Sliders,
   SunMedium,
+  Activity,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Camera } from '@/lib/types';
 import * as api from '@/lib/api';
 
@@ -78,7 +81,10 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Ping probe timed out';
-      setPingResult({ status: 'OFFLINE', message: msg });
+      setPingResult({
+        status: 'OFFLINE',
+        message: msg,
+      });
     } finally {
       setIsPinging(false);
     }
@@ -157,50 +163,54 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
-        className="overflow-y-auto flex flex-col justify-between w-full sm:max-w-[480px] p-6 space-y-4"
+        className="w-full sm:max-w-[460px] p-0 flex flex-col justify-between overflow-hidden bg-card border-l border-border"
       >
-        <div>
-          {/* Drawer Header */}
-          <SheetHeader className="pb-3 border-b border-border/60">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* 1. Header */}
+          <SheetHeader className="space-y-1.5 pb-4 border-b border-border/60">
             <div className="flex items-center justify-between pr-6">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted font-bold text-foreground">
+                <Badge variant="outline" className="font-mono text-xs">
                   CH-{displayChannel}
+                </Badge>
+                <span className="text-xs text-muted-foreground font-medium">
+                  {camera.dvr_nvr_name || 'NVR Bay'}
                 </span>
-                <span className="text-xs text-muted-foreground">{camera.dvr_nvr_name || 'NVR Bay'}</span>
               </div>
+
               <div>
                 {isOnline && (
-                  <Badge variant="success" className="gap-1.5 font-mono text-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    ONLINE
+                  <Badge variant="outline" className="text-xs font-normal text-muted-foreground gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Online
                   </Badge>
                 )}
                 {isOffline && (
-                  <Badge variant="danger" className="gap-1.5 font-mono text-xs animate-pulse">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                    OFFLINE
+                  <Badge variant="destructive" className="text-xs font-normal">
+                    Offline
                   </Badge>
                 )}
                 {isNoCam && (
-                  <Badge variant="spare" className="font-mono text-xs">
-                    SPARE PORT
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    Spare Port
                   </Badge>
                 )}
               </div>
             </div>
-            <SheetTitle className="text-lg font-bold tracking-tight text-foreground text-left mt-1">
+
+            <SheetTitle className="text-xl font-bold tracking-tight text-foreground text-left pt-1">
               {camera.name}
             </SheetTitle>
+
             <SheetDescription className="text-left text-xs text-muted-foreground flex items-center gap-1.5">
-              <MapPin className="w-3 h-3 text-primary shrink-0" />
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span>{camera.location || 'Location Not Specified'}</span>
             </SheetDescription>
           </SheetHeader>
 
-          {/* 1. Live Frame Snapshot Container (16:9 ratio) */}
-          <div className="mt-4 space-y-2">
-            <div className="relative aspect-video w-full rounded-lg border border-border/80 bg-black/40 overflow-hidden flex items-center justify-center shadow-inner">
+          {/* 2. Live Frame Snapshot Container (16:9) */}
+          <div className="space-y-2">
+            <div className="relative aspect-video w-full rounded-lg border border-border/80 bg-black/60 overflow-hidden flex items-center justify-center">
               {currentThumbnail ? (
                 <img
                   src={currentThumbnail}
@@ -208,39 +218,39 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : isOffline ? (
-                <div className="flex flex-col items-center justify-center p-4 text-center text-red-400">
-                  <AlertTriangle className="w-10 h-10 mb-2 text-red-500 animate-bounce" />
+                <div className="flex flex-col items-center justify-center p-4 text-center text-destructive">
+                  <AlertTriangle className="w-8 h-8 mb-2 opacity-80" />
                   <span className="text-sm font-semibold">Video Stream Inactive</span>
                   <span className="text-xs text-muted-foreground mt-1 font-mono">
                     {camera.last_error || 'TCP Socket Timeout on RTSP port'}
                   </span>
                 </div>
               ) : isNoCam ? (
-                <div className="flex flex-col items-center justify-center p-4 text-center text-slate-400">
-                  <Sliders className="w-10 h-10 mb-2 text-slate-500" />
+                <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+                  <Sliders className="w-8 h-8 mb-2 opacity-60" />
                   <span className="text-sm font-semibold">Spare Recorder Port</span>
-                  <span className="text-xs text-muted-foreground mt-1">No physical camera attached to this channel</span>
+                  <span className="text-xs text-muted-foreground mt-1">No camera attached</span>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center p-4 text-center text-emerald-400">
-                  <Radio className="w-10 h-10 mb-2 text-emerald-500 animate-pulse" />
-                  <span className="text-sm font-semibold">Live Stream Active</span>
+                <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+                  <Radio className="w-8 h-8 mb-2 text-emerald-500 animate-pulse" />
+                  <span className="text-sm font-semibold text-foreground">Live Stream Ready</span>
                   <span className="text-xs text-muted-foreground mt-1 font-mono">
-                    Ready for single-frame live diagnostic grab
+                    Click below to capture frame
                   </span>
                 </div>
               )}
 
               {/* Day/Night Intensity Tag */}
               {snapshotData?.intensity !== undefined && (
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/75 backdrop-blur text-[10px] font-mono text-white flex items-center gap-1">
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur text-[10px] font-mono text-white flex items-center gap-1">
                   <SunMedium className="w-3 h-3 text-amber-400" />
-                  <span>Lux/Mean: {Math.round(snapshotData.intensity)}</span>
+                  <span>Lux: {Math.round(snapshotData.intensity)}</span>
                 </div>
               )}
 
               {/* Timestamp tag */}
-              <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur text-[10px] font-mono text-white/90">
+              <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur text-[10px] font-mono text-white/90">
                 {snapshotData?.captured_at || new Date().toLocaleTimeString()}
               </div>
             </div>
@@ -254,100 +264,103 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
                 onClick={handleCaptureSnapshot}
                 disabled={isCapturing}
               >
-                <CameraIcon className={`w-3.5 h-3.5 ${isCapturing ? 'animate-spin' : ''}`} />
-                <span>{isCapturing ? 'Extracting RTSP Keyframe...' : 'Capture Fresh Live Snapshot'}</span>
+                <CameraIcon className={cn("w-3.5 h-3.5", isCapturing && "animate-spin")} />
+                <span>{isCapturing ? 'Extracting Frame...' : 'Capture Live Snapshot'}</span>
               </Button>
             )}
           </div>
 
-          {/* 2. Ping & Handshake Result Banner */}
+          {/* 3. Ping Feedback Alert */}
           {pingResult && (
             <div
-              className={`p-3 rounded-md text-xs font-mono border mt-3 transition-all ${
+              className={cn(
+                "p-3 rounded-md border text-xs flex items-start gap-2.5 transition-all",
                 pingResult.status === 'ONLINE'
-                  ? 'bg-emerald-950/20 border-emerald-500/40 text-emerald-400'
-                  : 'bg-red-950/20 border-red-500/40 text-red-400'
-              }`}
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  : "bg-destructive/10 border-destructive/20 text-destructive"
+              )}
             >
-              <div className="flex items-center justify-between font-bold">
-                <span>STATUS: {pingResult.status}</span>
-                <span className="text-[10px]">{new Date().toLocaleTimeString()}</span>
+              <Activity className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="font-semibold">{pingResult.status}: {pingResult.message}</div>
+                <div className="text-[10px] opacity-75 mt-0.5">{new Date().toLocaleTimeString()}</div>
               </div>
-              <p className="mt-1 text-[11px] leading-relaxed">{pingResult.message}</p>
             </div>
           )}
 
-          {/* 3. Stream & Network Specifications */}
-          <div className="mt-4 rounded-lg border border-border/80 bg-muted/20 p-3 space-y-2 text-xs">
-            <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-border/40">
-              <Server className="w-3.5 h-3.5 text-primary" />
-              <span>Network & Stream Telemetry</span>
-            </h4>
+          {/* 4. Stream & Network Specifications Card */}
+          <Card className="border-border/60 shadow-none">
+            <CardHeader className="p-3.5 pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                <span>Network & Stream Telemetry</span>
+                <Server className="w-3.5 h-3.5 text-muted-foreground" />
+              </CardTitle>
+            </CardHeader>
 
-            <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
-              <div>
-                <span className="text-muted-foreground block text-[10px]">IP ADDRESS</span>
-                <span className="text-foreground font-semibold">{camera.ip_address}</span>
+            <CardContent className="p-3.5 pt-0 space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">IP Address</span>
+                  <span className="font-mono font-medium text-foreground">{camera.ip_address}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">RTSP Port</span>
+                  <span className="font-mono font-medium text-foreground">{camera.port || 554}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Recorder Bay</span>
+                  <span className="font-medium text-foreground truncate block">{camera.dvr_nvr_name || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Bay Channel</span>
+                  <span className="font-mono font-medium text-foreground">Channel {camera.channel_no || '--'}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Ping Latency</span>
+                  <span className={cn("font-mono font-medium", isOnline ? "text-emerald-500" : "text-destructive")}>
+                    {camera.latency_ms ? `${Math.round(camera.latency_ms)}ms` : '--'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Last Verified</span>
+                  <span className="text-muted-foreground truncate block">
+                    {camera.last_checked ? new Date(camera.last_checked).toLocaleTimeString() : 'Recent'}
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="text-muted-foreground block text-[10px]">PORT</span>
-                <span className="text-foreground font-semibold">{camera.port || 554}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[10px]">RECORDER BAY</span>
-                <span className="text-foreground">{camera.dvr_nvr_name || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[10px]">RECORDED CHANNEL</span>
-                <span className="text-foreground">Channel {camera.channel_no || '--'}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[10px]">LATENCY</span>
-                <span className={isOnline ? 'text-emerald-400 font-semibold' : 'text-red-400'}>
-                  {camera.latency_ms ? `${Math.round(camera.latency_ms)} ms` : '--'}
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[10px]">LAST INSPECTED</span>
-                <span className="text-foreground truncate block">
-                  {camera.last_checked ? new Date(camera.last_checked).toLocaleTimeString() : 'Recent'}
-                </span>
-              </div>
-            </div>
 
-            {/* RTSP URL with Copy Button */}
-            <div className="pt-2 border-t border-border/40">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-muted-foreground uppercase font-mono">
-                  RTSP STREAM URI
-                </span>
-                <button
-                  onClick={copyRtsp}
-                  className="flex items-center gap-1 text-[10px] text-primary hover:underline font-mono"
-                >
-                  {copiedUrl ? (
-                    <>
-                      <Check className="w-3 h-3 text-emerald-500" />
-                      <span className="text-emerald-500">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" />
-                      <span>Copy URI</span>
-                    </>
-                  )}
-                </button>
+              {/* RTSP URL with Copy Button */}
+              <div className="pt-2.5 border-t border-border/40">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] text-muted-foreground">RTSP Stream URI</span>
+                  <button
+                    onClick={copyRtsp}
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground font-mono transition-colors"
+                  >
+                    {copiedUrl ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-500" />
+                        <span className="text-emerald-500">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy URI</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="p-2 rounded-md bg-muted/60 border border-input font-mono text-[10px] break-all select-all text-muted-foreground">
+                  {camera.masked_url || camera.rtsp_url}
+                </div>
               </div>
-              <div className="p-2 rounded bg-background border border-border/60 font-mono text-[10px] break-all text-muted-foreground">
-                {camera.masked_url || camera.rtsp_url}
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* 4. Interactive Drawer Diagnostic Actions */}
-        <div className="space-y-2 pt-4 border-t border-border/60">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+        {/* 5. Diagnostic Controls (Sticky Drawer Footer) */}
+        <div className="p-5 border-t border-border/60 bg-card space-y-2.5">
+          <div className="text-xs font-medium text-muted-foreground">
             Operator Diagnostic Controls
           </div>
 
@@ -359,7 +372,7 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
               onClick={handleTestPing}
               disabled={isPinging}
             >
-              <Zap className={`w-3.5 h-3.5 text-amber-500 ${isPinging ? 'animate-spin' : ''}`} />
+              <Zap className={cn("w-3.5 h-3.5", isPinging ? "animate-spin text-amber-500" : "text-muted-foreground")} />
               <span>{isPinging ? 'Testing...' : 'Test Ping'}</span>
             </Button>
 
@@ -370,7 +383,7 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
               onClick={handleToggleSpare}
               disabled={isTogglingSpare}
             >
-              <Sliders className="w-3.5 h-3.5 text-slate-400" />
+              <Sliders className="w-3.5 h-3.5 text-muted-foreground" />
               <span>{isNoCam ? 'Set as Active' : 'Mark as Spare'}</span>
             </Button>
           </div>
@@ -379,13 +392,12 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
           <Button
             variant="destructive"
             size="sm"
-            className="w-full text-xs h-8 gap-1.5 bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-300"
+            className="w-full text-xs h-8 gap-1.5"
             onClick={handleSimulateOutage}
             disabled={isSimulating}
-            title="Inject an artificial outage for this camera to verify system alarm handling"
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-            <span>{isSimulating ? 'Injecting Outage...' : 'Simulate Camera Outage Alarm'}</span>
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>{isSimulating ? 'Injecting Outage...' : 'Simulate Outage Alarm'}</span>
           </Button>
         </div>
       </SheetContent>
