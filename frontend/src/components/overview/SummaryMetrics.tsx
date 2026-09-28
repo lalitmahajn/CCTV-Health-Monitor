@@ -1,7 +1,7 @@
 import React from 'react';
-import { Video, CheckCircle2, AlertOctagon, HelpCircle, Activity } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Video, CheckCircle2, AlertOctagon, HelpCircle } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import type { FleetSummary } from '@/lib/types';
 
 interface SummaryMetricsProps {
@@ -18,105 +18,78 @@ export const SummaryMetrics: React.FC<SummaryMetricsProps> = ({
   const cards = [
     {
       id: 'TOTAL',
-      label: 'TOTAL CHANNELS',
+      title: 'Total Channels',
       value: summary.total,
-      subtext: `${summary.online} Active / ${summary.noCam} Spare`,
-      icon: <Video className="w-5 h-5 text-primary" />,
-      badge: (
-        <Badge variant="outline" className="font-mono text-xs">
-          Fleet Capacity
-        </Badge>
-      ),
-      borderColor: 'hover:border-primary/50',
+      subtext: `${summary.online} active · ${summary.noCam} spare slots`,
+      icon: Video,
       isActive: activeFilter === null || activeFilter === 'ALL',
       filterValue: null,
+      highlight: null,
     },
     {
       id: 'ONLINE',
-      label: 'ONLINE OPERATIONAL',
+      title: 'Online Operational',
       value: summary.online,
-      subtext: `${summary.healthPercent}% Operational Health`,
-      icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
-      badge: (
-        <Badge variant="success" className="font-mono text-xs gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          {summary.healthPercent}%
-        </Badge>
-      ),
-      borderColor: 'hover:border-emerald-500/50',
+      subtext: `${summary.healthPercent}% operational health`,
+      icon: CheckCircle2,
       isActive: activeFilter === 'ONLINE',
       filterValue: 'ONLINE',
+      highlight: 'text-emerald-500',
     },
     {
       id: 'OFFLINE',
-      label: 'OFFLINE CRITICAL',
+      title: 'Offline Critical',
       value: summary.offline,
-      subtext: summary.offline > 0 
-        ? `${summary.activeIncidents} Active Incident${summary.activeIncidents === 1 ? '' : 's'}` 
-        : 'All systems normal',
-      icon: <AlertOctagon className={`w-5 h-5 ${summary.offline > 0 ? 'text-red-500 animate-bounce' : 'text-muted-foreground'}`} />,
-      badge: summary.offline > 0 ? (
-        <Badge variant="danger" className="font-mono text-xs">
-          {summary.offline} Down
-        </Badge>
-      ) : (
-        <Badge variant="outline" className="font-mono text-xs text-emerald-500 border-emerald-500/30">
-          Zero Outages
-        </Badge>
-      ),
-      borderColor: summary.offline > 0 ? 'border-red-500/40 hover:border-red-500' : 'hover:border-red-500/30',
+      subtext: summary.offline > 0
+        ? `${summary.activeIncidents} active alert${summary.activeIncidents === 1 ? '' : 's'}`
+        : 'All systems operating normally',
+      icon: AlertOctagon,
       isActive: activeFilter === 'OFFLINE',
       filterValue: 'OFFLINE',
+      highlight: summary.offline > 0 ? 'text-destructive' : null,
     },
     {
       id: 'NO_CAM',
-      label: 'SPARE / NO CAM',
+      title: 'Spare Ports',
       value: summary.noCam,
       subtext: 'Unassigned recorder slots',
-      icon: <HelpCircle className="w-5 h-5 text-slate-400" />,
-      badge: (
-        <Badge variant="spare" className="font-mono text-xs">
-          Provisioning
-        </Badge>
-      ),
-      borderColor: 'hover:border-slate-500/40',
+      icon: HelpCircle,
       isActive: activeFilter === 'NO_CAM',
       filterValue: 'NO_CAM',
+      highlight: null,
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      {cards.map((c) => (
-        <Card
-          key={c.id}
-          onClick={() => onFilterStatus && onFilterStatus(c.filterValue)}
-          className={`cursor-pointer transition-all duration-150 ${c.borderColor} ${
-            c.isActive ? 'ring-1 ring-primary/40 bg-accent/20' : 'hover:bg-muted/40'
-          }`}
-        >
-          <CardContent className="p-4 flex flex-col justify-between h-full">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
-                {c.label}
-              </span>
-              {c.badge}
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-2xl sm:text-3xl font-extrabold font-mono tracking-tight text-foreground">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {cards.map((c) => {
+        const Icon = c.icon;
+        return (
+          <Card
+            key={c.id}
+            onClick={() => onFilterStatus && onFilterStatus(c.filterValue)}
+            className={cn(
+              "cursor-pointer transition-colors hover:bg-muted/50",
+              c.isActive && "ring-1 ring-ring border-foreground/20"
+            )}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {c.title}
+              </CardTitle>
+              <Icon className={cn("h-4 w-4 text-muted-foreground", c.highlight)} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold tracking-tight">
                 {c.value}
-              </span>
-              <div className="p-1.5 rounded-md bg-muted/60">
-                {c.icon}
               </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 truncate flex items-center gap-1">
-              <Activity className="w-3 h-3 text-muted-foreground/60 inline" />
-              {c.subtext}
-            </p>
-          </CardContent>
-        </Card>
-      ))}
+              <p className="text-xs text-muted-foreground mt-1">
+                {c.subtext}
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };

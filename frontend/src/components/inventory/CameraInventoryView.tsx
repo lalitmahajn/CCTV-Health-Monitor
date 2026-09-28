@@ -21,7 +21,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { 
-  Server, 
   Search, 
   Plus, 
   Download, 
@@ -197,26 +196,16 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Top action bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-lg border border-border bg-card shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
-            <Server className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                Camera Fleet Inventory
-              </h2>
-              <Badge variant="outline" className="font-mono text-xs">
-                {cameras.length} Channels Registered
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Manage NVR bay channel assignments, RTSP streaming credentials, and hardware endpoints
-            </p>
-          </div>
+    <div className="space-y-6">
+      {/* Official Shadcn Page Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Camera Inventory
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Manage channel assignments, RTSP streaming credentials, and hardware endpoints across {cameras.length} cameras.
+          </p>
         </div>
 
         {/* Action Buttons: Add, Import, Export */}

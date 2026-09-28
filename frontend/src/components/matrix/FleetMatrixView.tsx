@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { RackMatrixBay } from './RackMatrixBay';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -9,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Filter, LayoutGrid } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Camera, NvrInfo } from '@/lib/types';
 
 interface FleetMatrixViewProps {
@@ -68,53 +68,44 @@ export const FleetMatrixView: React.FC<FleetMatrixViewProps> = ({
   });
 
   return (
-    <div className="space-y-4">
-      {/* 1. Header Banner */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-lg border border-border bg-card">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
-            <LayoutGrid className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                DVR / NVR Channels Matrix
-              </h2>
-              <Badge variant="outline" className="font-mono text-xs">
-                32-CH Rack Bays
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              High-density channel rack matrix. Hover any channel tile for instant preview or click to inspect.
-            </p>
-          </div>
+    <div className="space-y-6">
+      {/* 1. Official Shadcn Page Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            DVR / NVR Channels
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            32-channel rack bay matrix. Hover any channel tile for instant preview or click to inspect.
+          </p>
         </div>
 
         {/* Quick status summary badges */}
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <Badge variant="success" className="gap-1 h-7">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{totalOnline} Online</span>
-          </Badge>
+        <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-card font-mono text-muted-foreground">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span className="text-foreground font-medium">{totalOnline}</span> Online
+          </div>
           {totalOffline > 0 && (
-            <Badge variant="danger" className="gap-1 h-7 animate-pulse">
-              <span>{totalOffline} Down</span>
-            </Badge>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-destructive/40 bg-destructive/10 text-destructive font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+              <span className="font-semibold">{totalOffline}</span> Down
+            </div>
           )}
-          <Badge variant="spare" className="h-7">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-card font-mono text-muted-foreground">
             <span>{totalSpare} Spare</span>
-          </Badge>
+          </div>
         </div>
       </div>
 
-      {/* 2. Controls: Search, NVR Selector, Status Filters */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-lg border border-border/80 bg-card/60 backdrop-blur">
+      {/* 2. Controls Toolbar: Search, NVR Selector, Status Filters */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
           <Input
             type="text"
-            placeholder="Search channels by camera name, IP, channel, or location..."
+            placeholder="Search channels by name, IP, channel, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 pr-8 h-9 text-xs"
@@ -150,7 +141,7 @@ export const FleetMatrixView: React.FC<FleetMatrixViewProps> = ({
           </div>
 
           {/* Status Filters */}
-          <div className="flex items-center gap-1 bg-muted/40 p-0.5 rounded-md border border-border/60">
+          <div className="flex items-center rounded-md bg-muted p-0.5 text-muted-foreground">
             {[
               { id: null, label: 'All' },
               { id: 'ONLINE', label: 'Online' },
@@ -160,11 +151,12 @@ export const FleetMatrixView: React.FC<FleetMatrixViewProps> = ({
               <button
                 key={String(btn.id)}
                 onClick={() => setFilterStatus(btn.id)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                className={cn(
+                  "rounded-sm px-2.5 py-1 text-xs font-medium transition-all",
                   filterStatus === btn.id
-                    ? 'bg-background text-foreground shadow-xs font-semibold'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                    ? "bg-background text-foreground shadow-xs font-semibold"
+                    : "hover:text-foreground"
+                )}
               >
                 {btn.label}
               </button>

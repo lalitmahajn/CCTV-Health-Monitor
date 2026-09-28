@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChannelTile } from './ChannelTile';
 import { HardDrive, ChevronDown, ChevronUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Camera, NvrInfo } from '@/lib/types';
 
 interface RackMatrixBayProps {
@@ -61,21 +62,20 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
   const isCriticalBay = offlineCount >= 2;
 
   return (
-    <Card className={`border transition-all duration-200 ${
-      isCriticalBay 
-        ? 'border-red-500/50 shadow-md shadow-red-500/5 bg-red-950/5' 
-        : 'border-border/80 hover:border-border'
-    }`}>
+    <Card className={cn(
+      "border-border/60 transition-colors",
+      isCriticalBay && "border-destructive/40"
+    )}>
       {/* Bay Header */}
-      <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-2 border-b border-border/60 bg-muted/20">
+      <CardHeader className="p-3.5 pb-2.5 border-b border-border/40 bg-muted/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className={`p-1.5 rounded-md ${isCriticalBay ? 'bg-red-500/20 text-red-500' : 'bg-primary/10 text-primary'}`}>
+            <div className="p-1.5 rounded-md bg-muted text-muted-foreground">
               <HardDrive className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-bold tracking-tight">
+                <CardTitle className="text-sm font-semibold tracking-tight">
                   {nvrName}
                 </CardTitle>
                 {nvrInfo?.ip_address && (
@@ -85,19 +85,19 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
                 )}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                <span>{cameras.length} Channels Allocated</span>
-                <span>•</span>
-                <span className="text-emerald-500 font-semibold">{onlineCount} Online</span>
+                <span>{cameras.length} Channels</span>
+                <span>·</span>
+                <span>{onlineCount} Online</span>
                 {offlineCount > 0 && (
                   <>
-                    <span>•</span>
-                    <span className="text-red-500 font-bold">{offlineCount} Down</span>
+                    <span>·</span>
+                    <span className="text-destructive font-medium">{offlineCount} Down</span>
                   </>
                 )}
                 {spareCount > 0 && (
                   <>
-                    <span>•</span>
-                    <span className="text-slate-400">{spareCount} Spare</span>
+                    <span>·</span>
+                    <span>{spareCount} Spare</span>
                   </>
                 )}
               </div>
@@ -106,8 +106,8 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
 
           <div className="flex items-center gap-2">
             {isCriticalBay && (
-              <Badge variant="danger" className="text-[10px] animate-pulse">
-                CRITICAL BAY
+              <Badge variant="destructive" className="text-[10px]">
+                Critical Bay
               </Badge>
             )}
             <Button

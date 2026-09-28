@@ -9,9 +9,10 @@ import {
   Eye, 
   Check, 
   History, 
-  ShieldAlert, 
   Search 
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import type { Incident, Camera } from '@/lib/types';
 
 interface IncidentCommandViewProps {
@@ -62,50 +63,47 @@ export const IncidentCommandView: React.FC<IncidentCommandViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header and Filter Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-lg border border-border bg-card">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20">
-            <ShieldAlert className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-              Incident Command & Alarm Log
-              {activeIncidents.length > 0 && (
-                <Badge variant="danger" className="font-mono text-xs">
-                  {activeIncidents.length} Unresolved
-                </Badge>
-              )}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Real-time audit log of hardware disconnects, RTSP socket drops, and operator acknowledgments
-            </p>
-          </div>
+    <div className="space-y-6">
+      {/* Official Shadcn Page Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Incident Command
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Audit log of hardware disconnects, RTSP socket drops, and operator acknowledgments.
+          </p>
         </div>
 
         {/* Tab Toggle: Active vs Resolved History */}
-        <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/60">
+        <div className="flex items-center rounded-md bg-muted p-0.5 text-muted-foreground">
           <button
             onClick={() => setFilterMode('ACTIVE')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            className={cn(
+              "flex items-center gap-1.5 rounded-sm px-3 py-1 text-xs font-medium transition-all",
               filterMode === 'ACTIVE'
-                ? 'bg-background text-foreground shadow-sm font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "hover:text-foreground"
+            )}
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-            <span>Active Outages ({activeIncidents.length})</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+            <span>Active Outages</span>
+            {activeIncidents.length > 0 && (
+              <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px] h-4">
+                {activeIncidents.length}
+              </Badge>
+            )}
           </button>
           <button
             onClick={() => setFilterMode('HISTORY')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            className={cn(
+              "flex items-center gap-1.5 rounded-sm px-3 py-1 text-xs font-medium transition-all",
               filterMode === 'HISTORY'
-                ? 'bg-background text-foreground shadow-sm font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "hover:text-foreground"
+            )}
           >
-            <History className="w-3.5 h-3.5 text-emerald-500" />
+            <History className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Resolved History ({incidentHistory.length})</span>
           </button>
         </div>
@@ -114,12 +112,12 @@ export const IncidentCommandView: React.FC<IncidentCommandViewProps> = ({
       {/* Search Input */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
+        <Input
           type="text"
           placeholder="Filter incidents by camera name, NVR, or failure reason..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-3 py-1.5 rounded-md border border-input bg-background text-xs sm:text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+          className="pl-9 pr-3 h-9 text-xs"
         />
       </div>
 

@@ -24,18 +24,18 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
   const displayChannel = chNum > 0 ? String(chNum).padStart(2, '0') : camera.channel_no || '--';
 
   // Tile appearance based on status
-  let tileBorder = 'border-border/60 hover:border-slate-400 bg-card';
-  let dotColor = 'bg-slate-500';
-  let statusBadge = <Badge variant="spare" className="text-[10px] h-4">SPARE</Badge>;
+  let tileBorder = 'border-border/60 bg-card hover:bg-muted/50 hover:border-foreground/20';
+  let dotColor = 'bg-muted-foreground/40';
 
   if (isOnline) {
-    tileBorder = 'border-emerald-500/30 hover:border-emerald-500 hover:shadow-emerald-500/10 bg-emerald-950/5';
+    tileBorder = 'border-border/60 bg-card hover:bg-muted/50 hover:border-foreground/20';
     dotColor = 'bg-emerald-500';
-    statusBadge = <Badge variant="success" className="text-[10px] h-4">ONLINE</Badge>;
   } else if (isOffline) {
-    tileBorder = 'border-red-500/60 hover:border-red-500 bg-red-950/20 shadow-red-500/10 animate-pulse-fast';
-    dotColor = 'bg-red-500';
-    statusBadge = <Badge variant="danger" className="text-[10px] h-4">OFFLINE</Badge>;
+    tileBorder = 'border-destructive/60 bg-destructive/10 hover:border-destructive';
+    dotColor = 'bg-destructive animate-pulse';
+  } else if (isNoCam) {
+    tileBorder = 'border-border/40 bg-muted/20 opacity-60 hover:opacity-90';
+    dotColor = 'bg-muted-foreground/30';
   }
 
   return (
@@ -102,7 +102,20 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
                 {camera.name}
               </h4>
             </div>
-            {statusBadge}
+            {isOnline ? (
+              <Badge variant="outline" className="text-[10px] gap-1 font-normal text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Online
+              </Badge>
+            ) : isOffline ? (
+              <Badge variant="destructive" className="text-[10px] font-normal">
+                Offline
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px] font-normal">
+                Spare
+              </Badge>
+            )}
           </div>
 
           {/* Thumbnail Preview / Visual Area */}

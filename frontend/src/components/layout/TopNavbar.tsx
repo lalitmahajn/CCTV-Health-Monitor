@@ -12,16 +12,17 @@ import {
   Moon, 
   RotateCw, 
   RefreshCcw,
-  Radio
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import type { ActiveTab } from '@/hooks/useCameraFleet';
 import type { SSEConnectionStatus } from '@/hooks/useSSELiveStream';
 import * as api from '@/lib/api';
@@ -73,117 +74,103 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     {
       id: 'dashboard',
-      label: 'Fleet Dashboard',
-      icon: <LayoutDashboard className="w-4 h-4 mr-1.5" />,
+      label: 'Dashboard',
+      icon: <LayoutDashboard className="w-3.5 h-3.5" />,
     },
     {
       id: 'matrix',
-      label: 'DVR/NVR Channels',
-      icon: <LayoutGrid className="w-4 h-4 mr-1.5" />,
+      label: 'DVR/NVR Matrix',
+      icon: <LayoutGrid className="w-3.5 h-3.5" />,
     },
     {
       id: 'incidents',
-      label: 'Incident Command',
-      icon: <AlertTriangle className="w-4 h-4 mr-1.5" />,
+      label: 'Incidents',
+      icon: <AlertTriangle className="w-3.5 h-3.5" />,
       badge: activeIncidentCount,
     },
     {
       id: 'inventory',
-      label: 'Camera Inventory',
-      icon: <Server className="w-4 h-4 mr-1.5" />,
+      label: 'Inventory',
+      icon: <Server className="w-3.5 h-3.5" />,
     },
     {
       id: 'settings',
-      label: 'System Settings',
-      icon: <Settings className="w-4 h-4 mr-1.5" />,
+      label: 'Settings',
+      icon: <Settings className="w-3.5 h-3.5" />,
     },
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="flex h-16 items-center px-4 md:px-6 justify-between gap-4">
-        {/* Left: Branding & Real-time SSE Beacon */}
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-14 items-center px-4 md:px-6 justify-between gap-4">
+        {/* Left: Branding & Status Indicator */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 text-primary">
-            <ShieldCheck className="w-5 h-5 text-emerald-500" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-xs">
+            <ShieldCheck className="h-4 w-4" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-foreground text-base md:text-lg">
-                CCTV FLEET MATRIX
-              </span>
-              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-                270-CH
-              </span>
-            </div>
-            {/* Live SSE Status Beacon */}
-            <div className="flex items-center gap-1.5 text-[11px] font-mono">
-              <Radio
-                className={`w-3 h-3 ${
-                  sseStatus === 'connected'
-                    ? 'text-emerald-500 animate-pulse'
-                    : sseStatus === 'connecting'
-                    ? 'text-amber-500 animate-spin'
-                    : 'text-red-500'
-                }`}
-              />
-              <span
-                className={
-                  sseStatus === 'connected'
-                    ? 'text-emerald-500 font-semibold'
-                    : sseStatus === 'connecting'
-                    ? 'text-amber-500'
-                    : 'text-red-500'
-                }
-              >
-                {sseStatus === 'connected'
-                  ? 'LIVE SSE'
-                  : sseStatus === 'connecting'
-                  ? 'RECONNECTING...'
-                  : 'DISCONNECTED'}
-              </span>
-              {lastHeartbeat && (
-                <span className="text-muted-foreground text-[10px] hidden sm:inline">
-                  • {lastHeartbeat.toLocaleTimeString()}
-                </span>
-              )}
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm tracking-tight text-foreground">
+              CCTV Monitor
+            </span>
+            <div 
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/80 text-[10px] font-mono text-muted-foreground"
+              title={lastHeartbeat ? `Heartbeat: ${lastHeartbeat.toLocaleTimeString()}` : undefined}
+            >
+              <span className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                sseStatus === 'connected' ? "bg-emerald-500 animate-pulse" : "bg-destructive"
+              )} />
+              <span>{sseStatus === 'connected' ? 'LIVE' : 'OFFLINE'}</span>
             </div>
           </div>
         </div>
 
-        {/* Center: Full Horizontal Top Navigation Tabs */}
-        <nav className="flex items-center space-x-1 border border-border/60 bg-muted/30 p-1 rounded-lg">
-          {navItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
+        {/* Center: Official Radix Tabs for Navigation */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => onTabChange(val as ActiveTab)}
+          className="hidden md:block"
+        >
+          <TabsList className="h-8 bg-muted/60 p-0.5">
+            {navItems.map((item) => (
+              <TabsTrigger
                 key={item.id}
-                onClick={() => onTabChange(item.id)}
-                className={`relative flex items-center px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-background text-foreground shadow-sm font-semibold'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
+                value={item.id}
+                className="text-xs gap-1.5 px-3 h-7 data-[state=active]:shadow-xs"
               >
                 {item.icon}
                 <span>{item.label}</span>
                 {item.badge !== undefined && item.badge > 0 && (
                   <Badge
-                    variant="danger"
-                    className="ml-2 px-1.5 py-0 text-[10px] h-4 min-w-[16px] justify-center animate-pulse"
+                    variant="destructive"
+                    className="ml-1 px-1 py-0 text-[10px] h-3.5 min-w-[14px] justify-center"
                   >
                     {item.badge}
                   </Badge>
                 )}
-              </button>
-            );
-          })}
-        </nav>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
-        {/* Right: Quick actions, Sound toggle, Dark mode & Manual Refresh */}
-        <div className="flex items-center gap-2">
+        {/* Mobile Navigation fallback */}
+        <div className="flex md:hidden items-center gap-1">
+          {navItems.map((item) => (
+            <Button
+              key={item.id}
+              variant={activeTab === item.id ? "secondary" : "ghost"}
+              size="icon-sm"
+              onClick={() => onTabChange(item.id)}
+            >
+              {item.icon}
+            </Button>
+          ))}
+        </div>
+
+        {/* Right: Actions & Tools */}
+        <div className="flex items-center gap-1.5">
           {scanMessage && (
-            <span className="text-xs text-primary font-mono hidden md:inline animate-fade-in">
+            <span className="text-xs text-muted-foreground mr-1 animate-fade-in hidden lg:inline">
               {scanMessage}
             </span>
           )}
@@ -194,31 +181,30 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             onClick={handleScanAll}
             disabled={isScanning}
             className="hidden sm:inline-flex text-xs h-8 gap-1.5"
-            title="Trigger concurrent ping and health scan across all 270 cameras"
           >
-            <RotateCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin text-primary' : ''}`} />
+            <RotateCw className={cn("w-3.5 h-3.5", isScanning && "animate-spin")} />
             <span>Scan Fleet</span>
           </Button>
 
           <TooltipProvider delayDuration={150}>
-            {/* Audio Toggle */}
+            {/* Audio Alarm Toggle */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   onClick={onToggleSound}
-                  className={soundEnabled ? 'text-foreground' : 'text-muted-foreground line-through'}
+                  className="h-8 w-8"
                 >
                   {soundEnabled ? (
-                    <Volume2 className="w-4 h-4 text-emerald-400" />
+                    <Volume2 className="w-4 h-4 text-foreground" />
                   ) : (
                     <VolumeX className="w-4 h-4 text-muted-foreground" />
                   )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>{soundEnabled ? 'Mute audio alerts' : 'Enable audio alarms'}</p>
+                <p>{soundEnabled ? 'Mute audio alarms' : 'Enable audio alarms'}</p>
               </TooltipContent>
             </Tooltip>
 
@@ -229,16 +215,17 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onToggleDarkMode}
+                  className="h-8 w-8"
                 >
                   {isDarkMode ? (
-                    <Sun className="w-4 h-4 text-amber-400" />
+                    <Sun className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                   ) : (
-                    <Moon className="w-4 h-4 text-slate-700" />
+                    <Moon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                   )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>{isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Slate'}</p>
+                <p>{isDarkMode ? 'Switch to Light' : 'Switch to Dark'}</p>
               </TooltipContent>
             </Tooltip>
 
@@ -249,8 +236,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                   variant="ghost"
                   size="icon-sm"
                   onClick={onRefresh}
+                  className="h-8 w-8"
                 >
-                  <RefreshCcw className="w-4 h-4" />
+                  <RefreshCcw className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">

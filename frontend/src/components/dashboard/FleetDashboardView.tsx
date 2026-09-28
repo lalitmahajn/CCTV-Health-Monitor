@@ -8,16 +8,11 @@ import { Progress } from '@/components/ui/progress';
 import { 
   HardDrive, 
   ArrowRight, 
-  CheckCircle2, 
-  AlertOctagon, 
-  Sliders, 
-  ExternalLink,
-  ShieldCheck,
-  RotateCw,
-  FileSpreadsheet,
-  Activity,
-  Clock
+  RotateCw, 
+  FileSpreadsheet, 
+  AlertTriangle 
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Camera, NvrInfo, Incident, FleetSummary } from '@/lib/types';
 import * as api from '@/lib/api';
 
@@ -55,7 +50,7 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
       setIsScanning(true);
       setScanMessage(null);
       await api.triggerFullFleetScan();
-      setScanMessage('Full fleet scan triggered');
+      setScanMessage('Scan completed successfully');
       setTimeout(() => setScanMessage(null), 3500);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Scan failed';
@@ -68,7 +63,7 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Critical Outage Alerts Banner (Shown immediately when cameras drop) */}
+      {/* 1. Critical Outage Alerts Banner (Shown only when cameras drop) */}
       <CriticalOutageBanner
         activeIncidents={activeIncidents}
         onAcknowledge={onAcknowledgeIncident}
@@ -76,85 +71,62 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
         cameras={cameras}
       />
 
-      {/* 2. Operational Quick-Action Command Strip */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-lg border border-border bg-card">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                CCTV Enterprise Command Center
-              </h2>
-              <Badge variant="outline" className="font-mono text-xs">
-                {groupKeys.length} Recorders • {cameras.length} Channels
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Real-time hardware status across all physical NVR rack bays and field cameras
-            </p>
-          </div>
+      {/* 2. Official Shadcn Page Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Fleet Dashboard
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Real-time telemetry across {groupKeys.length} NVR hardware bays and {cameras.length} camera channels.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           {scanMessage && (
-            <span className="text-xs text-primary font-mono animate-fade-in mr-2">
+            <span className="text-xs text-muted-foreground animate-fade-in mr-2">
               {scanMessage}
             </span>
           )}
-
           <Button
             variant="outline"
             size="sm"
-            className="text-xs h-8 gap-1.5"
-            onClick={handleScanFleet}
-            disabled={isScanning}
-          >
-            <RotateCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin text-primary' : ''}`} />
-            <span>Scan Entire Fleet</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-8 gap-1.5"
+            className="text-xs"
             asChild
           >
-            <a href="/api/cameras/excel/export" download>
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Export Excel</span>
+            <a href="/api/cameras/csv/export" download>
+              <FileSpreadsheet className="w-4 h-4 mr-1.5 text-muted-foreground" />
+              Export CSV
             </a>
           </Button>
-
           <Button
-            variant="default"
             size="sm"
-            className="text-xs h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => onNavigateToMatrix()}
+            onClick={handleScanFleet}
+            disabled={isScanning}
+            className="text-xs"
           >
-            <span>Open DVR/NVR Channels</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <RotateCw className={cn("w-4 h-4 mr-1.5", isScanning && "animate-spin")} />
+            {isScanning ? 'Scanning...' : 'Scan Fleet'}
           </Button>
         </div>
       </div>
 
-      {/* 3. Core KPI Operational Summary Cards */}
+      {/* 3. Executive KPI Metric Cards (Official Shadcn dashboard-01 layout) */}
       <SummaryMetrics summary={summary} />
 
-      {/* 4. NVR Hardware Recorder Bays Status Grid */}
-      <div className="space-y-3">
+      {/* 4. NVR Hardware Recorders & Rack Bays Section */}
+      <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold tracking-tight text-foreground flex items-center gap-2">
-              <HardDrive className="w-4 h-4 text-primary" />
-              <span>NVR Hardware Recorders & Rack Bays</span>
-              <Badge variant="outline" className="font-mono text-xs">
-                {groupKeys.length} Active Bays
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold tracking-tight text-foreground flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-muted-foreground" />
+              <span>NVR Rack Bays</span>
+              <Badge variant="secondary" className="font-normal text-xs">
+                {groupKeys.length} Units
               </Badge>
             </h3>
             <p className="text-xs text-muted-foreground">
-              Direct telemetry for each physical video recorder in the server racks
+              Hardware rack telemetry and channel allocation for physical recorders
             </p>
           </div>
           <Button
@@ -163,8 +135,8 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
             className="text-xs text-muted-foreground hover:text-foreground"
             onClick={() => onNavigateToMatrix()}
           >
-            <span>Switch to 32-CH Grid View</span>
-            <ArrowRight className="w-3 h-3 ml-1" />
+            <span>Open 32-CH Grid</span>
+            <ArrowRight className="w-3.5 h-3.5 ml-1" />
           </Button>
         </div>
 
@@ -190,58 +162,59 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
             return (
               <Card
                 key={bayName}
-                className={`transition-all duration-150 hover:border-primary/50 flex flex-col justify-between ${
-                  isCritical ? 'border-red-500/50 bg-red-950/5' : 'border-border/80'
-                }`}
+                className={cn(
+                  "flex flex-col justify-between transition-colors hover:bg-muted/20",
+                  isCritical && "border-destructive/50"
+                )}
               >
-                <CardHeader className="p-4 pb-2 border-b border-border/40">
+                <CardHeader className="p-4 pb-3 space-y-0">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-sm font-bold tracking-tight flex items-center gap-1.5">
-                        <span>{bayName}</span>
+                      <CardTitle className="text-sm font-semibold tracking-tight">
+                        {bayName}
                       </CardTitle>
                       <CardDescription className="text-xs font-mono mt-0.5">
-                        {info?.ip_address ? `${info.ip_address}:${info.port || 554}` : 'Assigned Bay'}
+                        {info?.ip_address ? `${info.ip_address}:${info.port || 554}` : 'Assigned Rack'}
                       </CardDescription>
                     </div>
 
                     {isCritical ? (
-                      <Badge variant="danger" className="text-[10px] animate-pulse">
-                        {offline} OUTAGES
+                      <Badge variant="destructive" className="text-[11px] gap-1 font-normal">
+                        <AlertTriangle className="w-3 h-3" />
+                        {offline} Down
                       </Badge>
                     ) : (
-                      <Badge variant="success" className="text-[10px] font-mono">
-                        {healthPct}% HEALTH
+                      <Badge variant="outline" className="text-[11px] gap-1 font-normal text-muted-foreground">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        {healthPct}%
                       </Badge>
                     )}
                   </div>
                 </CardHeader>
 
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-4 pt-0 space-y-3">
                   {/* Channel Breakdown Stats */}
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
-                    <div className="p-2 rounded bg-muted/40 border border-border/40">
-                      <span className="text-muted-foreground block text-[10px] uppercase">Online</span>
-                      <span className="font-bold text-emerald-400 flex items-center justify-center gap-1 mt-0.5">
-                        <CheckCircle2 className="w-3 h-3" />
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="p-2 rounded-md bg-muted/50">
+                      <span className="text-muted-foreground block text-[10px]">Online</span>
+                      <span className="font-semibold text-foreground mt-0.5 block">
                         {online}
                       </span>
                     </div>
 
-                    <div className="p-2 rounded bg-muted/40 border border-border/40">
-                      <span className="text-muted-foreground block text-[10px] uppercase">Offline</span>
-                      <span className={`font-bold flex items-center justify-center gap-1 mt-0.5 ${
-                        offline > 0 ? 'text-red-400' : 'text-muted-foreground'
-                      }`}>
-                        <AlertOctagon className="w-3 h-3" />
+                    <div className="p-2 rounded-md bg-muted/50">
+                      <span className="text-muted-foreground block text-[10px]">Offline</span>
+                      <span className={cn(
+                        "font-semibold mt-0.5 block",
+                        offline > 0 ? "text-destructive" : "text-muted-foreground"
+                      )}>
                         {offline}
                       </span>
                     </div>
 
-                    <div className="p-2 rounded bg-muted/40 border border-border/40">
-                      <span className="text-muted-foreground block text-[10px] uppercase">Spare</span>
-                      <span className="font-bold text-slate-400 flex items-center justify-center gap-1 mt-0.5">
-                        <Sliders className="w-3 h-3" />
+                    <div className="p-2 rounded-md bg-muted/50">
+                      <span className="text-muted-foreground block text-[10px]">Spare</span>
+                      <span className="font-semibold text-muted-foreground mt-0.5 block">
                         {spare}
                       </span>
                     </div>
@@ -249,26 +222,23 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
 
                   {/* Channel allocation bar using Shadcn Progress */}
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
-                      <span>Operational Channels</span>
-                      <span className="font-semibold text-foreground">{online} / {total - spare} ({healthPct}%)</span>
+                    <div className="flex justify-between text-[11px] text-muted-foreground">
+                      <span>Allocation</span>
+                      <span className="font-mono">
+                        {online} / {total - spare} ({healthPct}%)
+                      </span>
                     </div>
-                    <Progress
-                      value={healthPct}
-                      className="h-1.5 bg-muted"
-                      indicatorClassName={isCritical ? "bg-red-500" : "bg-emerald-500"}
-                    />
+                    <Progress value={healthPct} className="h-1.5" />
                   </div>
 
-                  {/* Jump directly to Bay in Matrix */}
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full text-xs h-8 gap-1.5 mt-2 justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/40"
+                    className="w-full text-xs h-8 mt-1"
                     onClick={() => onNavigateToMatrix(bayName)}
                   >
-                    <span>Inspect {bayName} Channels</span>
-                    <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                    <span>Inspect Bay Channels</span>
+                    <ArrowRight className="w-3 h-3 ml-1.5 text-muted-foreground" />
                   </Button>
                 </CardContent>
               </Card>
@@ -276,61 +246,6 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
           })}
         </div>
       </div>
-
-      {/* 5. Real-Time Fleet Diagnostics Summary */}
-      <Card className="border-border/80">
-        <CardHeader className="p-4 pb-2 border-b border-border/40">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-500" />
-              <span>Fleet Operation & Diagnostics Summary</span>
-            </CardTitle>
-            <span className="text-xs text-muted-foreground font-mono flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              Continuous Daemon Monitoring
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
-            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-              <span className="text-muted-foreground block text-[11px] uppercase mb-1">
-                Active Surveillance Streams
-              </span>
-              <span className="text-lg font-bold text-foreground">
-                {summary.online} / {summary.total - summary.noCam} Active
-              </span>
-              <p className="text-[11px] text-emerald-400 mt-1">
-                ✓ 100% of enabled cameras responding to RTSP probes
-              </p>
-            </div>
-
-            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-              <span className="text-muted-foreground block text-[11px] uppercase mb-1">
-                Hardware Spare Allocation
-              </span>
-              <span className="text-lg font-bold text-foreground">
-                {summary.noCam} Unconnected Ports
-              </span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Designated as spare to suppress false disconnect alarms
-              </p>
-            </div>
-
-            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-              <span className="text-muted-foreground block text-[11px] uppercase mb-1">
-                Recorder Capacity
-              </span>
-              <span className="text-lg font-bold text-foreground">
-                {groupKeys.length} Video Recorders
-              </span>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                All 9 NVRs operational with 0 critical outages
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

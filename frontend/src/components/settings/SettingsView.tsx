@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Settings as SettingsIcon, 
   Save, 
   Bell, 
   Mail, 
@@ -104,18 +103,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onFleetReload }) => 
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center gap-3 p-4 rounded-lg border border-border bg-card shadow-xs">
-        <div className="p-2.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
-          <SettingsIcon className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-            System & Notification Settings
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Configure scan frequencies, notification thresholds, remote dispatch webhooks, and fleet presets
-          </p>
-        </div>
+      <div>
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+          System Settings
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Configure probe frequencies, alert thresholds, webhook dispatches, and recorder presets.
+        </p>
       </div>
 
       <form onSubmit={handleSaveSettings} className="space-y-4">
