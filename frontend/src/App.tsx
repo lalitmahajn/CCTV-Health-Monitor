@@ -1,122 +1,141 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React from 'react';
+import { useCameraFleet } from './hooks/useCameraFleet';
+import { TopNavbar } from './components/layout/TopNavbar';
+import { FleetMatrixView } from './components/matrix/FleetMatrixView';
+import { IncidentCommandView } from './components/incidents/IncidentCommandView';
+import { CameraInventoryView } from './components/inventory/CameraInventoryView';
+import { SettingsView } from './components/settings/SettingsView';
+import { CameraDrawer } from './components/drawer/CameraDrawer';
+import { Loader2, AlertCircle } from 'lucide-react';
 
-function App() {
-  const [count, setCount] = useState(0)
+export const App: React.FC = () => {
+  const {
+    cameras,
+    nvrs,
+    nvrGroups,
+    activeIncidents,
+    incidentHistory,
+    summary,
+    isLoading,
+    error,
+    sseStatus,
+    lastHeartbeat,
+    activeTab,
+    setActiveTab,
+    selectedCamera,
+    setSelectedCamera,
+    soundEnabled,
+    toggleSound,
+    isDarkMode,
+    toggleDarkMode,
+    refreshFleet,
+    ackIncident,
+    manualCheckCamera,
+    toggleSparePort,
+  } = useCameraFleet();
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased selection:bg-primary/20">
+      {/* 1. Sticky Full-Width Top Navigation Bar */}
+      <TopNavbar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        activeIncidentCount={activeIncidents.length}
+        sseStatus={sseStatus}
+        lastHeartbeat={lastHeartbeat}
+        soundEnabled={soundEnabled}
+        onToggleSound={toggleSound}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={toggleDarkMode}
+        onRefresh={refreshFleet}
+      />
 
-      <div className="ticks"></div>
+      {/* 2. Main Content Container */}
+      <main className="flex-1 w-full max-w-[1680px] mx-auto p-4 md:p-6 lg:p-8">
+        {/* Error notification if API unreachable */}
+        {error && (
+          <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <div className="text-sm">
+              <span className="font-bold">Backend Communication Notice:</span> {error}.
+              Make sure the FastAPI server is running on port 8000.
+            </div>
+          </div>
+        )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        {/* Loading state on first load */}
+        {isLoading && cameras.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <div className="text-sm font-mono text-muted-foreground">
+              Connecting to CCTV Fleet Stream (270 Channels)...
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* View Switcher based on TopNavbar Tab */}
+            {activeTab === 'dashboard' && (
+              <FleetMatrixView
+                cameras={cameras}
+                nvrs={nvrs}
+                nvrGroups={nvrGroups}
+                summary={summary}
+                activeIncidents={activeIncidents}
+                onSelectCamera={(cam) => setSelectedCamera(cam)}
+                onAcknowledgeIncident={ackIncident}
+                onQuickPingCamera={(cam) => manualCheckCamera(cam.id)}
+              />
+            )}
+
+            {activeTab === 'incidents' && (
+              <IncidentCommandView
+                activeIncidents={activeIncidents}
+                incidentHistory={incidentHistory}
+                cameras={cameras}
+                onAcknowledge={ackIncident}
+                onInspectCamera={(cam) => setSelectedCamera(cam)}
+              />
+            )}
+
+            {activeTab === 'inventory' && (
+              <CameraInventoryView
+                cameras={cameras}
+                onRefresh={refreshFleet}
+                onInspectCamera={(cam) => setSelectedCamera(cam)}
+              />
+            )}
+
+            {activeTab === 'settings' && (
+              <SettingsView onFleetReload={refreshFleet} />
+            )}
+          </>
+        )}
+      </main>
+
+      {/* 3. Sliding Inspection Drawer (Shadcn Sheet) */}
+      <CameraDrawer
+        camera={selectedCamera}
+        isOpen={selectedCamera !== null}
+        onClose={() => setSelectedCamera(null)}
+        onManualCheck={manualCheckCamera}
+        onToggleSpare={toggleSparePort}
+        onUpdateCamera={(updated) => setSelectedCamera(updated)}
+      />
+
+      {/* 4. Bottom System Status Footer */}
+      <footer className="w-full border-t border-border/60 py-3 px-4 md:px-6 bg-muted/20 text-muted-foreground text-xs flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-mono text-[11px]">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>CCTV Health Monitor v2.0 • Vite + React + Shadcn UI</span>
+          <span>•</span>
+          <span>270-Channel High Density Fleet</span>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+        <div className="font-mono text-[11px]">
+          {summary.online} Online / {summary.offline} Offline / {summary.noCam} Spare ({summary.healthPercent}% Operational)
         </div>
-      </section>
+      </footer>
+    </div>
+  );
+};
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
-}
-
-export default App
+export default App;
