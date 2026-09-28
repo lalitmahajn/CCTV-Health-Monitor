@@ -78,6 +78,7 @@ export type UptimePeriod = '1h' | '6h' | '24h' | '7d' | '30d' | '90d';
 export interface UptimeDataPoint {
   timestamp: string;
   label: string;
+  tooltipLabel?: string;
   operating: number;
   offline: number;
   total: number;

@@ -32,6 +32,42 @@ const PERIOD_PRESETS: { key: UptimePeriod; label: string }[] = [
   { key: '90d', label: '90d' },
 ];
 
+const formatPointTime = (timestamp: string, period: UptimePeriod): string => {
+  try {
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return timestamp;
+
+    if (period === '1h' || period === '6h' || period === '24h') {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+    if (period === '7d') {
+      const monthDay = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+      return `${monthDay} ${time}`;
+    }
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  } catch {
+    return timestamp;
+  }
+};
+
+const formatTooltipTime = (timestamp: string): string => {
+  try {
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return timestamp;
+    return d.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return timestamp;
+  }
+};
+
 export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
   currentOnlineCount,
   activeProvisionedCount,
@@ -43,22 +79,27 @@ export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
   const [error, setError] = useState<string | null>(null);
   const gradientId = useId();
 
-  const loadData = React.useCallback(async (p: UptimePeriod) => {
+  const loadData = React.useCallback(async (p: UptimePeriod, isSilent = false) => {
     try {
-      setIsLoading(true);
+      if (!isSilent) setIsLoading(true);
       setError(null);
       const data = await fetchFleetUptimeHistory(p);
       setHistory(data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load telemetry history';
-      setError(msg);
+      if (!isSilent) setError(msg);
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadData(period);
+    // Periodically refresh telemetry silently every 30 seconds to keep x-axis timestamps in sync with real-time clock
+    const timer = setInterval(() => {
+      loadData(period, true);
+    }, 30000);
+    return () => clearInterval(timer);
   }, [period, loadData]);
 
   const totalActive = activeProvisionedCount ?? history?.total_provisioned ?? 0;
@@ -66,11 +107,13 @@ export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
   const minOperating = history?.summary.min_operating ?? currentOperating;
   const currentOffline = Math.max(0, totalActive - currentOperating);
 
-  // Sync latest live operating count into the dataset
+  // Sync latest live operating count into the dataset and format timestamps in user local timezone
   const chartData = React.useMemo(() => {
     if (!history?.data_points) return [];
     const points = history.data_points.map((pt) => ({
       ...pt,
+      label: formatPointTime(pt.timestamp, period),
+      tooltipLabel: formatTooltipTime(pt.timestamp),
       total: totalActive,
       offline: Math.max(0, totalActive - pt.operating),
     }));
@@ -85,7 +128,7 @@ export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
       };
     }
     return points;
-  }, [history, currentOnlineCount, currentOperating, currentOffline, totalActive]);
+  }, [history, period, currentOnlineCount, currentOperating, currentOffline, totalActive]);
 
   const uptimePct = totalActive > 0 
     ? ((currentOperating / totalActive) * 100).toFixed(1) 
@@ -247,8 +290,9 @@ export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
 
                       return (
                         <div className="rounded-lg border border-border bg-card/95 backdrop-blur-md p-3 shadow-xl text-xs space-y-2 min-w-[190px]">
-                          <div className="font-semibold text-foreground border-b border-border/50 pb-1.5 text-[11px] text-muted-foreground">
-                            {data.label}
+                          <div className="font-semibold text-foreground border-b border-border/50 pb-1.5 text-[11px] text-muted-foreground flex items-center justify-between">
+                            <span>{data.tooltipLabel || data.label}</span>
+                            <span className="text-[9px] text-zinc-500 font-mono px-1 py-0.5 rounded bg-zinc-800/60">Local</span>
                           </div>
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between text-foreground">
