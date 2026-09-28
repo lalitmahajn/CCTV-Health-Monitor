@@ -35,3 +35,7 @@ skills-lock.json
 .venv/
 venv/
 ENV/
+
+# Worktrees
+.worktrees/
+worktrees/
