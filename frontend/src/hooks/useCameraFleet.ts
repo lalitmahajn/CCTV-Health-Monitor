@@ -4,7 +4,7 @@ import * as api from '../lib/api';
 import { useSSELiveStream } from './useSSELiveStream';
 import { soundManager } from '../lib/audio';
 
-export type ActiveTab = 'dashboard' | 'incidents' | 'inventory' | 'settings';
+export type ActiveTab = 'dashboard' | 'matrix' | 'incidents' | 'inventory' | 'settings';
 
 export function useCameraFleet() {
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -16,6 +16,7 @@ export function useCameraFleet() {
 
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [selectedNvrFilter, setSelectedNvrFilter] = useState<string>('ALL');
 
   // Drawer state
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
@@ -254,6 +255,8 @@ export function useCameraFleet() {
     lastHeartbeat,
     activeTab,
     setActiveTab,
+    selectedNvrFilter,
+    setSelectedNvrFilter,
     selectedCamera,
     setSelectedCamera,
     soundEnabled,

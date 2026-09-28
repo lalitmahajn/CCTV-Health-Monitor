@@ -1,6 +1,7 @@
 import React from 'react';
 import { useCameraFleet } from './hooks/useCameraFleet';
 import { TopNavbar } from './components/layout/TopNavbar';
+import { FleetDashboardView } from './components/dashboard/FleetDashboardView';
 import { FleetMatrixView } from './components/matrix/FleetMatrixView';
 import { IncidentCommandView } from './components/incidents/IncidentCommandView';
 import { CameraInventoryView } from './components/inventory/CameraInventoryView';
@@ -22,6 +23,8 @@ export const App: React.FC = () => {
     lastHeartbeat,
     activeTab,
     setActiveTab,
+    selectedNvrFilter,
+    setSelectedNvrFilter,
     selectedCamera,
     setSelectedCamera,
     soundEnabled,
@@ -75,7 +78,7 @@ export const App: React.FC = () => {
           <>
             {/* View Switcher based on TopNavbar Tab */}
             {activeTab === 'dashboard' && (
-              <FleetMatrixView
+              <FleetDashboardView
                 cameras={cameras}
                 nvrs={nvrs}
                 nvrGroups={nvrGroups}
@@ -83,7 +86,22 @@ export const App: React.FC = () => {
                 activeIncidents={activeIncidents}
                 onSelectCamera={(cam) => setSelectedCamera(cam)}
                 onAcknowledgeIncident={ackIncident}
+                onNavigateToMatrix={(nvrName) => {
+                  if (nvrName) setSelectedNvrFilter(nvrName);
+                  setActiveTab('matrix');
+                }}
+              />
+            )}
+
+            {activeTab === 'matrix' && (
+              <FleetMatrixView
+                cameras={cameras}
+                nvrs={nvrs}
+                nvrGroups={nvrGroups}
+                onSelectCamera={(cam) => setSelectedCamera(cam)}
                 onQuickPingCamera={(cam) => manualCheckCamera(cam.id)}
+                selectedNvrFilter={selectedNvrFilter}
+                onNvrFilterChange={(nvr) => setSelectedNvrFilter(nvr)}
               />
             )}
 

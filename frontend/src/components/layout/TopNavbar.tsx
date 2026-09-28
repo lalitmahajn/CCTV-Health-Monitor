@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { 
   ShieldCheck, 
   LayoutDashboard, 
+  LayoutGrid,
   AlertTriangle, 
   Server, 
   Settings, 
@@ -66,8 +67,13 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     {
       id: 'dashboard',
-      label: 'Fleet Matrix',
+      label: 'Fleet Dashboard',
       icon: <LayoutDashboard className="w-4 h-4 mr-1.5" />,
+    },
+    {
+      id: 'matrix',
+      label: 'DVR/NVR Channels',
+      icon: <LayoutGrid className="w-4 h-4 mr-1.5" />,
     },
     {
       id: 'incidents',
