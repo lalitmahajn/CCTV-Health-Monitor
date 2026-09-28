@@ -79,13 +79,26 @@ def create_app(db_path: str = None) -> FastAPI:
             }
         )
 
-    # Static UI files mounting if folder exists
-    static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+    # Static files and frontend SPA mounting
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    frontend_dist = os.path.join(base_dir, "frontend", "dist")
+    static_dir = os.path.join(base_dir, "static")
+
     if os.path.exists(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+    if os.path.exists(frontend_dist):
+        assets_dir = os.path.join(frontend_dist, "assets")
+        if os.path.exists(assets_dir):
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
         @app.get("/")
-        async def serve_index():
+        async def serve_frontend():
+            index_path = os.path.join(frontend_dist, "index.html")
+            return FileResponse(index_path)
+    elif os.path.exists(static_dir):
+        @app.get("/")
+        async def serve_legacy_index():
             index_path = os.path.join(static_dir, "index.html")
             if os.path.exists(index_path):
                 return FileResponse(index_path)
