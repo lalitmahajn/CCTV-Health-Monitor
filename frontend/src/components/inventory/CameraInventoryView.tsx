@@ -33,8 +33,17 @@ import {
   ChevronLeft, 
   ChevronRight,
   FileSpreadsheet,
-  FileText
+  FileText,
+  MoreHorizontal
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import type { Camera } from '@/lib/types';
 import * as api from '@/lib/api';
 
@@ -327,14 +336,18 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
                       </TableCell>
                       <TableCell>
                         {isNoCam ? (
-                          <Badge variant="spare" className="text-[10px] h-4">SPARE</Badge>
+                          <Badge variant="secondary" className="text-[10px] h-4 font-normal">
+                            Spare
+                          </Badge>
                         ) : isOnline ? (
-                          <Badge variant="success" className="text-[10px] h-4 gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            ONLINE
+                          <Badge variant="outline" className="text-[10px] h-4 gap-1 font-normal text-muted-foreground">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Online
                           </Badge>
                         ) : (
-                          <Badge variant="danger" className="text-[10px] h-4">OFFLINE</Badge>
+                          <Badge variant="destructive" className="text-[10px] h-4 font-normal">
+                            Offline
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
@@ -344,44 +357,53 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
-                            size="icon-sm"
-                            title="Inspect in sliding drawer"
+                            size="sm"
+                            className="h-7 px-2 text-xs font-medium gap-1 text-muted-foreground hover:text-foreground"
                             onClick={() => onInspectCamera(cam)}
                           >
-                            <Eye className="w-3.5 h-3.5 text-primary" />
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Inspect</span>
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title="Run manual ping check"
-                            onClick={() => handleQuickPing(cam.id)}
-                          >
-                            <Zap className="w-3.5 h-3.5 text-amber-500" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title={isNoCam ? 'Mark as Active Camera' : 'Mark as Spare Port'}
-                            onClick={() => handleToggleNoCam(cam.id)}
-                          >
-                            <Sliders className="w-3.5 h-3.5 text-slate-400" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title="Edit camera parameters"
-                            onClick={() => handleOpenEdit(cam)}
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title="Delete camera record"
-                            onClick={() => handleDeleteCamera(cam.id, cam.name)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-red-400 hover:text-red-500" />
-                          </Button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                                <span className="sr-only">More actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuLabel>Camera Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => onInspectCamera(cam)}>
+                                <Eye className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                                <span>Inspect Drawer</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleQuickPing(cam.id)}>
+                                <Zap className="w-3.5 h-3.5 mr-2 text-amber-500" />
+                                <span>Run Ping Check</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleNoCam(cam.id)}>
+                                <Sliders className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                                <span>{isNoCam ? 'Mark as Active' : 'Mark as Spare'}</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenEdit(cam)}>
+                                <Edit3 className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                                <span>Edit Parameters</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                onClick={() => handleDeleteCamera(cam.id, cam.name)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                <span>Delete Camera</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </TableCell>
                     </TableRow>
