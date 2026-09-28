@@ -24,10 +24,21 @@ export function useCameraFleet() {
   // Sound preference state
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => soundManager.isEnabled());
 
-  // Dark mode state
+  // Dark mode state - default to dark slate
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    return document.documentElement.classList.contains('dark');
+    if (typeof window === 'undefined') return true;
+    const saved = localStorage.getItem('cctv_theme');
+    if (saved !== null) return saved === 'dark';
+    return true;
   });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   const toggleSound = useCallback(() => {
     const next = soundManager.toggle();
@@ -37,6 +48,7 @@ export function useCameraFleet() {
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode((prev) => {
       const next = !prev;
+      localStorage.setItem('cctv_theme', next ? 'dark' : 'light');
       if (next) {
         document.documentElement.classList.add('dark');
       } else {

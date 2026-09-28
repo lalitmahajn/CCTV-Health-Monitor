@@ -16,6 +16,12 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
 import type { ActiveTab } from '@/hooks/useCameraFleet';
 import type { SSEConnectionStatus } from '@/hooks/useSSELiveStream';
 import * as api from '@/lib/api';
@@ -194,41 +200,64 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             <span>Scan Fleet</span>
           </Button>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onToggleSound}
-            title={soundEnabled ? 'Audio alerts enabled (Click to mute)' : 'Audio alerts muted (Click to unmute)'}
-            className={soundEnabled ? 'text-foreground' : 'text-muted-foreground line-through'}
-          >
-            {soundEnabled ? (
-              <Volume2 className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <VolumeX className="w-4 h-4 text-muted-foreground" />
-            )}
-          </Button>
+          <TooltipProvider delayDuration={150}>
+            {/* Audio Toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onToggleSound}
+                  className={soundEnabled ? 'text-foreground' : 'text-muted-foreground line-through'}
+                >
+                  {soundEnabled ? (
+                    <Volume2 className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <VolumeX className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{soundEnabled ? 'Mute audio alerts' : 'Enable audio alarms'}</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onToggleDarkMode}
-            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {isDarkMode ? (
-              <Sun className="w-4 h-4 text-amber-400" />
-            ) : (
-              <Moon className="w-4 h-4 text-slate-700" />
-            )}
-          </Button>
+            {/* Dark Mode Toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onToggleDarkMode}
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  ) : (
+                    <Moon className="w-4 h-4 text-slate-700" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Slate'}</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onRefresh}
-            title="Refresh fleet data"
-          >
-            <RefreshCcw className="w-4 h-4" />
-          </Button>
+            {/* Refresh Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onRefresh}
+                >
+                  <RefreshCcw className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Refresh fleet data</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </header>

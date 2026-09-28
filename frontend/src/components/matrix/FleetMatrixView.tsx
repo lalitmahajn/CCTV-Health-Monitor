@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { RackMatrixBay } from './RackMatrixBay';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Search, Filter, LayoutGrid } from 'lucide-react';
 import type { Camera, NvrInfo } from '@/lib/types';
 
@@ -103,41 +111,42 @@ export const FleetMatrixView: React.FC<FleetMatrixViewProps> = ({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-lg border border-border/80 bg-card/60 backdrop-blur">
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+          <Input
             type="text"
             placeholder="Search channels by camera name, IP, channel, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-md border border-input bg-background text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground placeholder:text-muted-foreground"
+            className="pl-9 pr-8 h-9 text-xs"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
             >
-              Clear
+              ✕
             </button>
           )}
         </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* NVR Bay Selector */}
+          {/* Genuine Shadcn Select for NVR Bay Selector */}
           <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-            <select
-              value={selectedNvr}
-              onChange={(e) => handleNvrSelect(e.target.value)}
-              className="px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="ALL">All NVR Bays (9 Recorders)</option>
-              {groupKeys.map((key) => (
-                <option key={key} value={key}>
-                  {key} ({nvrGroups[key]?.length || 0} CH)
-                </option>
-              ))}
-            </select>
+            <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <Select value={selectedNvr} onValueChange={handleNvrSelect}>
+              <SelectTrigger className="w-[210px] h-9 text-xs font-medium">
+                <SelectValue placeholder="All NVR Bays (9 Recorders)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All NVR Bays (9 Recorders)</SelectItem>
+                {groupKeys.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {key} ({nvrGroups[key]?.length || 0} CH)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Status Filters */}

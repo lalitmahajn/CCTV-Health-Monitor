@@ -2,6 +2,24 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { 
   Server, 
   Search, 
@@ -158,11 +176,11 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
 
     try {
       setImportStatus('Uploading and parsing CSV...');
-      const formData = new FormData();
-      formData.append('file', importFile);
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', importFile);
       const res = await fetch('/api/cameras/csv/import', {
         method: 'POST',
-        body: formData,
+        body: uploadFormData,
       });
       const data = await res.json();
       setImportStatus(`Successfully imported ${data.imported_count} cameras.`);
@@ -181,19 +199,21 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
   return (
     <div className="space-y-4">
       {/* Top action bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-lg border border-border bg-card">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-lg border border-border bg-card shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
+          <div className="p-2.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
             <Server className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-              Camera Fleet Inventory
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
+                Camera Fleet Inventory
+              </h2>
               <Badge variant="outline" className="font-mono text-xs">
-                {cameras.length} Total Registered
+                {cameras.length} Channels Registered
               </Badge>
-            </h2>
-            <p className="text-xs text-muted-foreground">
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
               Manage NVR bay channel assignments, RTSP streaming credentials, and hardware endpoints
             </p>
           </div>
@@ -250,8 +270,8 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
       {/* Search Bar */}
       <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+          <Input
             type="text"
             placeholder="Search by camera name, IP, NVR bay, or location..."
             value={search}
@@ -259,64 +279,64 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full pl-9 pr-3 py-1.5 rounded-md border border-input bg-background text-xs sm:text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+            className="pl-9 pr-3 h-9 text-xs"
           />
         </div>
         <div className="text-xs text-muted-foreground font-mono">
-          Page {page} of {totalPages} ({filteredCameras.length} cameras)
+          Page {page} of {totalPages} ({filteredCameras.length} channels)
         </div>
       </div>
 
-      {/* Inventory Table */}
-      <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/40 border-b border-border/60 text-muted-foreground font-mono uppercase text-[10px]">
-              <tr>
-                <th className="py-2.5 px-3">CH</th>
-                <th className="py-2.5 px-3">Camera Name</th>
-                <th className="py-2.5 px-3">NVR Bay</th>
-                <th className="py-2.5 px-3">IP Endpoint</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3">Latency</th>
-                <th className="py-2.5 px-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
+      {/* Shadcn UI Table */}
+      <Card className="border-border/80 shadow-xs">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow className="border-border/60">
+                <TableHead className="w-16 font-mono font-bold text-xs">CH</TableHead>
+                <TableHead className="text-xs font-semibold">Camera Details</TableHead>
+                <TableHead className="text-xs font-semibold">NVR Bay</TableHead>
+                <TableHead className="text-xs font-semibold">Endpoint & RTSP</TableHead>
+                <TableHead className="text-xs font-semibold">Status</TableHead>
+                <TableHead className="text-xs font-semibold font-mono">Latency</TableHead>
+                <TableHead className="text-right text-xs font-semibold">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {paginatedCameras.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground font-mono">
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground font-mono text-xs">
                     No camera records found matching search query.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 paginatedCameras.map((cam) => {
                   const isNoCam = Boolean(cam.is_no_cam);
                   const isOnline = !isNoCam && cam.status === 'ONLINE';
 
                   return (
-                    <tr key={cam.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="py-2.5 px-3 font-mono font-bold text-foreground">
+                    <TableRow key={cam.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-mono font-bold text-foreground">
                         {cam.channel_no ? String(cam.channel_no).padStart(2, '0') : '--'}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <div className="font-semibold text-foreground">{cam.name}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-semibold text-foreground text-xs">{cam.name}</div>
                         {cam.location && (
-                          <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                          <div className="text-[11px] text-muted-foreground truncate max-w-[220px]">
                             {cam.location}
                           </div>
                         )}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
                         {cam.dvr_nvr_name || 'N/A'}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono">
-                        <div>{cam.ip_address}:{cam.port || 554}</div>
-                        <div className="text-[10px] text-muted-foreground truncate max-w-[180px]">
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        <div className="text-foreground">{cam.ip_address}:{cam.port || 554}</div>
+                        <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">
                           {cam.masked_url || cam.rtsp_url}
                         </div>
-                      </td>
-                      <td className="py-2.5 px-3">
+                      </TableCell>
+                      <TableCell>
                         {isNoCam ? (
                           <Badge variant="spare" className="text-[10px] h-4">SPARE</Badge>
                         ) : isOnline ? (
@@ -327,11 +347,11 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
                         ) : (
                           <Badge variant="danger" className="text-[10px] h-4">OFFLINE</Badge>
                         )}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
                         {isOnline && cam.latency_ms ? `${Math.round(cam.latency_ms)}ms` : '--'}
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
+                      </TableCell>
+                      <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -374,13 +394,13 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
                             <Trash2 className="w-3.5 h-3.5 text-red-400 hover:text-red-500" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </CardContent>
 
         {/* Pagination controls */}
@@ -413,210 +433,187 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
         )}
       </Card>
 
-      {/* Add / Edit Camera Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border/60 pb-3">
-              <h3 className="text-base font-bold text-foreground">
-                {editingCamera ? 'Edit Camera Parameters' : 'Register New Camera'}
-              </h3>
-              <button
+      {/* Genuine Shadcn Dialog: Add / Edit Camera */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">
+              {editingCamera ? 'Edit Camera Parameters' : 'Register New Camera'}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Configure video recorder channel assignment and RTSP network stream endpoints
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveCamera} className="space-y-3.5 text-xs pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-muted-foreground mb-1 font-medium">Camera Name</label>
+                <Input
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="h-8 text-xs"
+                  placeholder="e.g. Main Gate Camera"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground mb-1 font-medium">NVR Bay Name</label>
+                <Input
+                  value={formData.dvr_nvr_name}
+                  onChange={(e) => setFormData({ ...formData, dvr_nvr_name: e.target.value })}
+                  className="h-8 text-xs font-mono"
+                  placeholder="e.g. NVR 01"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="block text-muted-foreground mb-1 font-medium">IP Address</label>
+                <Input
+                  required
+                  value={formData.ip_address}
+                  onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
+                  className="h-8 text-xs font-mono"
+                  placeholder="192.168.1.100"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground mb-1 font-medium">Port</label>
+                <Input
+                  type="number"
+                  value={formData.port}
+                  onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 554 })}
+                  className="h-8 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-muted-foreground mb-1 font-medium">Channel Number</label>
+                <Input
+                  value={formData.channel_no}
+                  onChange={(e) => setFormData({ ...formData, channel_no: e.target.value })}
+                  className="h-8 text-xs font-mono"
+                  placeholder="1"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground mb-1 font-medium">Physical Location</label>
+                <Input
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="h-8 text-xs"
+                  placeholder="e.g. East Perimeter"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-muted-foreground mb-1 font-medium">RTSP Stream URL</label>
+              <Input
+                required
+                value={formData.rtsp_url}
+                onChange={(e) => setFormData({ ...formData, rtsp_url: e.target.value })}
+                className="h-8 text-xs font-mono text-[11px]"
+                placeholder="rtsp://admin:password@ip:554/cam/realmonitor?channel=1&subtype=0"
+              />
+            </div>
+
+            {/* Radix Switch toggles */}
+            <div className="flex items-center justify-between pt-2 border-t border-border/60">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.is_enabled}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_enabled: checked })}
+                />
+                <span className="text-xs font-medium">Monitoring Active</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.is_no_cam}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_no_cam: checked })}
+                />
+                <span className="text-xs font-medium text-slate-400">Spare Port (No Cam)</span>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setIsModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground text-sm"
               >
-                ✕
-              </button>
+                Cancel
+              </Button>
+              <Button type="submit" variant="default" size="sm">
+                {editingCamera ? 'Update Camera' : 'Create Camera'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Genuine Shadcn Dialog: CSV Import */}
+      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Upload className="w-4 h-4 text-primary" />
+              <span>Bulk Import Cameras via CSV</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Upload a CSV spreadsheet with headers: <code className="bg-muted px-1 py-0.5 rounded font-mono">name, dvr_nvr_name, ip_address, port, channel_no, rtsp_url, location</code>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleImportSubmit} className="space-y-4 text-xs pt-1">
+            <div>
+              <a
+                href="/api/cameras/csv/template"
+                download
+                className="text-primary hover:underline flex items-center gap-1 font-mono text-[11px]"
+              >
+                <Download className="w-3 h-3" />
+                <span>Download Sample CSV Template</span>
+              </a>
             </div>
 
-            <form onSubmit={handleSaveCamera} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-muted-foreground mb-1 font-semibold">Camera Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-2.5 py-1.5 rounded border border-input bg-background text-foreground"
-                    placeholder="e.g. Main Gate Camera"
-                  />
-                </div>
-                <div>
-                  <label className="block text-muted-foreground mb-1 font-semibold">NVR Bay Name</label>
-                  <input
-                    type="text"
-                    value={formData.dvr_nvr_name}
-                    onChange={(e) => setFormData({ ...formData, dvr_nvr_name: e.target.value })}
-                    className="w-full px-2.5 py-1.5 rounded border border-input bg-background text-foreground"
-                    placeholder="e.g. NVR 01"
-                  />
-                </div>
-              </div>
+            <div className="p-4 border border-dashed border-border rounded-lg text-center cursor-pointer hover:border-primary/50 transition-colors bg-muted/20">
+              <Input
+                type="file"
+                accept=".csv"
+                required
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                className="h-9 cursor-pointer text-xs"
+              />
+            </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-muted-foreground mb-1 font-semibold">IP Address</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.ip_address}
-                    onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-                    className="w-full px-2.5 py-1.5 rounded border border-input bg-background text-foreground font-mono"
-                    placeholder="192.168.1.100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-muted-foreground mb-1 font-semibold">Port</label>
-                  <input
-                    type="number"
-                    value={formData.port}
-                    onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 554 })}
-                    className="w-full px-2.5 py-1.5 rounded border border-input bg-background text-foreground font-mono"
-                  />
-                </div>
+            {importStatus && (
+              <div className="p-2.5 rounded-md bg-muted text-xs font-mono text-foreground border border-border/60">
+                {importStatus}
               </div>
+            )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-muted-foreground mb-1 font-semibold">Channel Number</label>
-                  <input
-                    type="text"
-                    value={formData.channel_no}
-                    onChange={(e) => setFormData({ ...formData, channel_no: e.target.value })}
-                    className="w-full px-2.5 py-1.5 rounded border border-input bg-background text-foreground font-mono"
-                    placeholder="1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-muted-foreground mb-1 font-semibold">Physical Location</label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full px-2.5 py-1.5 rounded border border-input bg-background text-foreground"
-                    placeholder="e.g. Sector 4 East Perimeter"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-muted-foreground mb-1 font-semibold">RTSP Stream URL</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.rtsp_url}
-                  onChange={(e) => setFormData({ ...formData, rtsp_url: e.target.value })}
-                  className="w-full px-2.5 py-1.5 rounded border border-input bg-background text-foreground font-mono text-[11px]"
-                  placeholder="rtsp://admin:password@ip:554/cam/realmonitor?channel=1&subtype=0"
-                />
-              </div>
-
-              <div className="flex items-center gap-4 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_enabled}
-                    onChange={(e) => setFormData({ ...formData, is_enabled: e.target.checked })}
-                    className="rounded border-input text-primary"
-                  />
-                  <span>Monitoring Enabled</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_no_cam}
-                    onChange={(e) => setFormData({ ...formData, is_no_cam: e.target.checked })}
-                    className="rounded border-input text-primary"
-                  />
-                  <span>Mark as Spare (No Cam)</span>
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-border/60">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" variant="default" size="sm">
-                  {editingCamera ? 'Update Camera' : 'Create Camera'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* CSV Import Modal */}
-      {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border/60 pb-3">
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <Upload className="w-4 h-4 text-primary" />
-                <span>Bulk Import Cameras via CSV</span>
-              </h3>
-              <button
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setIsImportModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground text-sm"
               >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleImportSubmit} className="space-y-4 text-xs">
-              <p className="text-muted-foreground">
-                Upload a CSV spreadsheet with headers: <code className="bg-muted px-1 rounded">name, dvr_nvr_name, ip_address, port, channel_no, rtsp_url, location</code>.
-              </p>
-
-              <div>
-                <a
-                  href="/api/cameras/csv/template"
-                  download
-                  className="text-primary hover:underline flex items-center gap-1 font-mono text-[11px]"
-                >
-                  <Download className="w-3 h-3" />
-                  <span>Download Sample CSV Template</span>
-                </a>
-              </div>
-
-              <div className="p-4 border-2 border-dashed border-border rounded-lg text-center cursor-pointer hover:border-primary/50 transition-colors">
-                <input
-                  type="file"
-                  accept=".csv"
-                  required
-                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-muted-foreground file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary file:text-primary-foreground"
-                />
-              </div>
-
-              {importStatus && (
-                <div className="p-2 rounded bg-muted text-xs font-mono text-foreground">
-                  {importStatus}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsImportModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" variant="default" size="sm" disabled={!importFile}>
-                  Upload & Import
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                Cancel
+              </Button>
+              <Button type="submit" variant="default" size="sm" disabled={!importFile}>
+                Upload & Import
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
