@@ -461,7 +461,60 @@ def setup_routes(app):
         await settings_repo.update_many(payload)
         return {"message": "Settings updated"}
 
+    @router.post("/settings/test-email")
+    async def test_email():
+        """Send a test email using the current SMTP settings."""
+        import smtplib
+        from email.mime.text import MIMEText
+
+        s = await settings_repo.get_all()
+        host = s.get("smtp_host", "").strip()
+        port_str = s.get("smtp_port", "587").strip()
+        user = s.get("smtp_user", "").strip()
+        password = s.get("smtp_password", "").strip()
+        use_tls = s.get("smtp_use_tls", "true").lower() == "true"
+        recipients = s.get("email_recipients", "").strip()
+
+        if not host:
+            raise HTTPException(status_code=400, detail="SMTP Host is not configured")
+        if not user:
+            raise HTTPException(status_code=400, detail="SMTP Username / Sender Email is not configured")
+        if not recipients:
+            raise HTTPException(status_code=400, detail="No recipients configured")
+
+        port = int(port_str) if port_str.isdigit() else 587
+        to_list = [r.strip() for r in recipients.split(",") if r.strip()]
+
+        msg = MIMEText(
+            "This is a test alert from the CCTV Health Monitoring System.\n\n"
+            "If you received this, your SMTP email dispatch is configured correctly.\n\n"
+            "— CCTV Monitor Daemon"
+        )
+        msg["Subject"] = "[CCTV Monitor] Test Alert — SMTP Configuration Verified"
+        msg["From"] = user
+        msg["To"] = ", ".join(to_list)
+
+        try:
+            if port == 465:
+                server = smtplib.SMTP_SSL(host, port, timeout=10)
+            else:
+                server = smtplib.SMTP(host, port, timeout=10)
+                if use_tls:
+                    server.starttls()
+            if password:
+                server.login(user, password)
+            server.sendmail(user, to_list, msg.as_string())
+            server.quit()
+            return {"message": f"Test email sent successfully to {', '.join(to_list)}"}
+        except smtplib.SMTPAuthenticationError as e:
+            raise HTTPException(status_code=401, detail=f"SMTP authentication failed: {e}")
+        except smtplib.SMTPConnectError as e:
+            raise HTTPException(status_code=502, detail=f"Could not connect to SMTP server: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"SMTP error: {e}")
+
     # --- Simulator ---
+
 
     @router.post("/simulator/seed-270")
     async def seed_simulation():

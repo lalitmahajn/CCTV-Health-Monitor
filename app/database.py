@@ -89,8 +89,16 @@ async def init_db(db_path: str = None):
             ("enable_frozen_frame_detection", "false", "Check if consecutive frames are identical"),
             ("max_concurrency_per_host", "2", "Max concurrent stream requests per physical NVR IP"),
             ("enable_audio_alert", "true", "Enable UI sound chime on outages"),
-            ("simulation_mode", "false", "Run in mock simulation mode")
+            ("simulation_mode", "false", "Run in mock simulation mode"),
+            ("enable_email_alerts", "false", "Enable SMTP email outage alerts"),
+            ("smtp_host", "", "SMTP server hostname"),
+            ("smtp_port", "587", "SMTP server port"),
+            ("smtp_user", "", "SMTP username / sender email"),
+            ("smtp_password", "", "SMTP password or app password"),
+            ("smtp_use_tls", "true", "Use TLS/STARTTLS for SMTP connection"),
+            ("email_recipients", "", "Comma-separated list of alert recipients"),
         ]
+
         
         for k, v, desc in defaults:
             await db.execute(

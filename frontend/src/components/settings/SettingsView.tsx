@@ -10,7 +10,12 @@ import {
   Send, 
   Database, 
   RefreshCw,
-  HardDrive
+  HardDrive,
+  ChevronDown,
+  ChevronUp,
+  Lock,
+  ShieldCheck,
+  FlaskConical
 } from 'lucide-react';
 import * as api from '@/lib/api';
 
@@ -27,6 +32,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onFleetReload }) => 
   const [nvrOldName, setNvrOldName] = useState('NVR 01');
   const [nvrNewName, setNvrNewName] = useState('');
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
+
+  // Email section expand state
+  const [emailExpanded, setEmailExpanded] = useState(false);
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [testEmailStatus, setTestEmailStatus] = useState<string | null>(null);
 
   // Simulator state
   const [isSeeding, setIsSeeding] = useState(false);
@@ -101,6 +111,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onFleetReload }) => 
     }
   };
 
+  const handleSendTestEmail = async () => {
+    try {
+      setIsTestingEmail(true);
+      setTestEmailStatus(null);
+      const res = await fetch('/api/settings/test-email', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setTestEmailStatus(`Error: ${data.detail || 'Failed to send test email'}`);
+      } else {
+        setTestEmailStatus(`✓ ${data.message}`);
+      }
+      setTimeout(() => setTestEmailStatus(null), 6000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error';
+      setTestEmailStatus(`Error: ${msg}`);
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
+  // Derive enabled state from settings for the toggle display
+  const emailEnabled = settings['enable_email_alerts'] === 'true';
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
@@ -159,65 +192,174 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onFleetReload }) => 
           </CardContent>
         </Card>
 
-        {/* 2. Email Notifications */}
+        {/* 2. Email Notifications — Collapsible */}
         <Card className="border-border/80 shadow-xs">
-          <CardHeader className="p-4 pb-2 border-b border-border/40">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Mail className="w-4 h-4 text-blue-400" />
-              <span>SMTP Email Dispatch</span>
-            </CardTitle>
+          <CardHeader className="p-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-blue-400" />
+                <CardTitle className="text-sm font-semibold">
+                  SMTP Email Dispatch
+                </CardTitle>
+                <Badge
+                  variant={emailEnabled ? 'default' : 'secondary'}
+                  className="text-[10px] font-mono"
+                >
+                  {emailEnabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground gap-1"
+                onClick={() => setEmailExpanded(!emailExpanded)}
+              >
+                {emailExpanded ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>Collapse</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>Configure</span>
+                  </>
+                )}
+              </Button>
+            </div>
             <CardDescription className="text-xs">
               Automated email incident reports to security supervisor and IT infrastructure teams
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-4 space-y-3 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2">
-                <label className="block text-muted-foreground mb-1.5 font-medium">SMTP Host</label>
-                <Input
-                  type="text"
-                  placeholder="smtp.example.com"
-                  value={settings['smtp_host'] || ''}
-                  onChange={(e) => handleChange('smtp_host', e.target.value)}
-                  className="h-9 font-mono text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-muted-foreground mb-1.5 font-medium">SMTP Port</label>
-                <Input
-                  type="number"
-                  placeholder="587"
-                  value={settings['smtp_port'] || '587'}
-                  onChange={(e) => handleChange('smtp_port', e.target.value)}
-                  className="h-9 font-mono text-xs"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-muted-foreground mb-1.5 font-medium">Sender Email</label>
-                <Input
-                  type="email"
-                  placeholder="alerts@domain.com"
-                  value={settings['smtp_user'] || ''}
-                  onChange={(e) => handleChange('smtp_user', e.target.value)}
-                  className="h-9 text-xs"
-                />
+          {emailExpanded && (
+            <CardContent className="p-4 pt-0 space-y-4 text-xs border-t border-border/40">
+              {/* Enable Toggle */}
+              <div className="flex items-center justify-between py-2.5 px-3 bg-muted/30 rounded-lg border border-border/50">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <div className="text-xs font-medium text-foreground">Enable Email Alerts</div>
+                    <div className="text-[10px] text-muted-foreground">Send outage/recovery emails when incidents trigger</div>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant={emailEnabled ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-[11px] px-3"
+                  onClick={() => handleChange('enable_email_alerts', emailEnabled ? 'false' : 'true')}
+                >
+                  {emailEnabled ? 'On' : 'Off'}
+                </Button>
               </div>
-              <div>
-                <label className="block text-muted-foreground mb-1.5 font-medium">Recipient List</label>
-                <Input
-                  type="text"
-                  placeholder="security@domain.com, admin@domain.com"
-                  value={settings['email_recipients'] || ''}
-                  onChange={(e) => handleChange('email_recipients', e.target.value)}
-                  className="h-9 text-xs"
-                />
+
+              {/* Server */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-muted-foreground mb-1.5 font-medium">SMTP Host</label>
+                  <Input
+                    type="text"
+                    placeholder="smtp.gmail.com"
+                    value={settings['smtp_host'] || ''}
+                    onChange={(e) => handleChange('smtp_host', e.target.value)}
+                    className="h-9 font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-muted-foreground mb-1.5 font-medium">SMTP Port</label>
+                  <Input
+                    type="number"
+                    placeholder="587"
+                    value={settings['smtp_port'] || '587'}
+                    onChange={(e) => handleChange('smtp_port', e.target.value)}
+                    className="h-9 font-mono text-xs"
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1 block">587 = STARTTLS, 465 = SSL</span>
+                </div>
               </div>
-            </div>
-          </CardContent>
+
+              {/* Auth */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-muted-foreground mb-1.5 font-medium">SMTP Username</label>
+                  <Input
+                    type="email"
+                    placeholder="alerts@yourcompany.com"
+                    value={settings['smtp_user'] || ''}
+                    onChange={(e) => handleChange('smtp_user', e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1 block">Usually the sender email address</span>
+                </div>
+                <div>
+                  <label className="block text-muted-foreground mb-1.5 font-medium flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    SMTP Password
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="App password or SMTP credential"
+                    value={settings['smtp_password'] || ''}
+                    onChange={(e) => handleChange('smtp_password', e.target.value)}
+                    className="h-9 font-mono text-xs"
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1 block">For Gmail, use an App Password (not your login password)</span>
+                </div>
+              </div>
+
+              {/* TLS + Recipients */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-muted-foreground mb-1.5 font-medium">Use TLS Encryption</label>
+                  <Button
+                    type="button"
+                    variant={settings['smtp_use_tls'] !== 'false' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-9 w-full text-xs"
+                    onClick={() => handleChange('smtp_use_tls', settings['smtp_use_tls'] === 'false' ? 'true' : 'false')}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                    {settings['smtp_use_tls'] !== 'false' ? 'TLS Enabled' : 'TLS Disabled'}
+                  </Button>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-muted-foreground mb-1.5 font-medium">Recipient List</label>
+                  <Input
+                    type="text"
+                    placeholder="security@domain.com, admin@domain.com"
+                    value={settings['email_recipients'] || ''}
+                    onChange={(e) => handleChange('email_recipients', e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1 block">Comma-separated email addresses</span>
+                </div>
+              </div>
+
+              {/* Test Email Button */}
+              <div className="flex items-center gap-3 pt-1 border-t border-border/40">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={handleSendTestEmail}
+                  disabled={isTestingEmail}
+                >
+                  <FlaskConical className="w-3.5 h-3.5" />
+                  <span>{isTestingEmail ? 'Sending...' : 'Send Test Email'}</span>
+                </Button>
+                {testEmailStatus && (
+                  <span className={`text-xs font-mono ${testEmailStatus.startsWith('✓') ? 'text-emerald-400' : 'text-destructive'}`}>
+                    {testEmailStatus}
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          )}
         </Card>
+
 
         {/* 3. Telegram Bot Notifications */}
         <Card className="border-border/80 shadow-xs">
