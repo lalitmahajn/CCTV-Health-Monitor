@@ -184,6 +184,7 @@ export function useCameraFleet() {
 
     return {
       total: cameras.length,
+      activeTotal: totalActive,
       online,
       offline,
       noCam,
@@ -191,6 +192,8 @@ export function useCameraFleet() {
       activeIncidents: activeIncidents.length,
       criticalNvrCount,
     };
+
+
   }, [cameras, activeIncidents]);
 
   // Group cameras by NVR name

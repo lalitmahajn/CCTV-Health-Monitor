@@ -118,8 +118,10 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
       {/* 4. Fleet Operating Trend Line Chart */}
       <FleetUptimeChart
         currentOnlineCount={summary.online}
-        totalCamerasCount={summary.total}
+        activeProvisionedCount={summary.activeTotal ?? (summary.total - summary.noCam)}
+        sparePortsCount={summary.noCam}
       />
+
 
       {/* 5. NVR Hardware Recorders & Rack Bays Section */}
 

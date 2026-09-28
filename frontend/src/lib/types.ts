@@ -54,6 +54,7 @@ export interface IncidentResponse {
 
 export interface FleetSummary {
   total: number;
+  activeTotal: number;
   online: number;
   offline: number;
   noCam: number;
@@ -72,6 +73,8 @@ export interface SSEEventData {
   consecutive_failures?: number;
 }
 
+export type UptimePeriod = '1h' | '6h' | '24h' | '7d' | '30d' | '90d';
+
 export interface UptimeDataPoint {
   timestamp: string;
   label: string;
@@ -81,7 +84,7 @@ export interface UptimeDataPoint {
 }
 
 export interface FleetUptimeHistoryResponse {
-  period: '24h' | '7d' | '30d';
+  period: UptimePeriod;
   total_provisioned: number;
   summary: {
     current_operating: number;
@@ -92,4 +95,5 @@ export interface FleetUptimeHistoryResponse {
   };
   data_points: UptimeDataPoint[];
 }
+
 

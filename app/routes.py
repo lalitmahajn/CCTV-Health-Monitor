@@ -283,7 +283,7 @@ def setup_routes(app):
         import datetime
         import hashlib
 
-        valid_periods = {"24h", "7d", "30d"}
+        valid_periods = {"1h", "6h", "24h", "7d", "30d", "90d"}
         if period not in valid_periods:
             period = "24h"
 
@@ -297,7 +297,15 @@ def setup_routes(app):
         now = datetime.datetime.now(datetime.timezone.utc)
         data_points = []
 
-        if period == "24h":
+        if period == "1h":
+            steps = 12
+            delta = datetime.timedelta(minutes=5)
+            date_format = "%H:%M"
+        elif period == "6h":
+            steps = 24
+            delta = datetime.timedelta(minutes=15)
+            date_format = "%H:%M"
+        elif period == "24h":
             steps = 24
             delta = datetime.timedelta(hours=1)
             date_format = "%H:00"
@@ -305,10 +313,15 @@ def setup_routes(app):
             steps = 28
             delta = datetime.timedelta(hours=6)
             date_format = "%b %d %H:%M"
-        else:  # 30d
+        elif period == "30d":
             steps = 30
             delta = datetime.timedelta(days=1)
             date_format = "%b %d"
+        else:  # 90d
+            steps = 30
+            delta = datetime.timedelta(days=3)
+            date_format = "%b %d"
+
 
         timestamps = [now - (delta * (steps - i)) for i in range(steps + 1)]
         all_incidents = (await inc_repo.get_history(limit=500)) + (await inc_repo.get_active())
