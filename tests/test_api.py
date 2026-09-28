@@ -86,6 +86,21 @@ async def test_api_camera_endpoints(tmp_path):
         assert res_excel.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         assert len(res_excel.content) > 1000
 
+        # Test Fleet Uptime History endpoint
+        for period in ["24h", "7d", "30d"]:
+            res_uptime = await client.get(f"/api/fleet/uptime-history?period={period}")
+            assert res_uptime.status_code == 200
+            uptime_data = res_uptime.json()
+            assert uptime_data["period"] == period
+            assert "total_provisioned" in uptime_data
+            assert "summary" in uptime_data
+            assert "current_operating" in uptime_data["summary"]
+            assert len(uptime_data["data_points"]) > 0
+            latest_point = uptime_data["data_points"][-1]
+            assert "operating" in latest_point
+            assert "label" in latest_point
+
+
 
 
 

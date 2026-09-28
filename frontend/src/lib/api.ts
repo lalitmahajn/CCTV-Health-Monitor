@@ -1,4 +1,4 @@
-import type { Camera, NvrInfo, IncidentResponse } from './types';
+import type { Camera, NvrInfo, IncidentResponse, FleetUptimeHistoryResponse } from './types';
 
 const API_BASE = '/api';
 
@@ -150,3 +150,11 @@ export async function simulateOutage(cameraId: number, errorReason = 'Simulated 
   });
   return handleResponse(res);
 }
+
+export async function fetchFleetUptimeHistory(
+  period: '24h' | '7d' | '30d' = '24h'
+): Promise<FleetUptimeHistoryResponse> {
+  const res = await fetch(`${API_BASE}/fleet/uptime-history?period=${period}`);
+  return handleResponse<FleetUptimeHistoryResponse>(res);
+}
+

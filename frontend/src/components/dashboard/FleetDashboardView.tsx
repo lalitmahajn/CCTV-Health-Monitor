@@ -1,6 +1,7 @@
 import React from 'react';
 import { SummaryMetrics } from '@/components/overview/SummaryMetrics';
 import { CriticalOutageBanner } from '@/components/overview/CriticalOutageBanner';
+import { FleetUptimeChart } from './FleetUptimeChart';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -114,7 +115,14 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
       {/* 3. Executive KPI Metric Cards (Official Shadcn dashboard-01 layout) */}
       <SummaryMetrics summary={summary} />
 
-      {/* 4. NVR Hardware Recorders & Rack Bays Section */}
+      {/* 4. Fleet Operating Trend Line Chart */}
+      <FleetUptimeChart
+        currentOnlineCount={summary.online}
+        totalCamerasCount={summary.total}
+      />
+
+      {/* 5. NVR Hardware Recorders & Rack Bays Section */}
+
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <div className="space-y-1">

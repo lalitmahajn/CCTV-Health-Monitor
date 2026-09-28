@@ -71,3 +71,25 @@ export interface SSEEventData {
   duration_seconds?: number;
   consecutive_failures?: number;
 }
+
+export interface UptimeDataPoint {
+  timestamp: string;
+  label: string;
+  operating: number;
+  offline: number;
+  total: number;
+}
+
+export interface FleetUptimeHistoryResponse {
+  period: '24h' | '7d' | '30d';
+  total_provisioned: number;
+  summary: {
+    current_operating: number;
+    min_operating: number;
+    max_operating: number;
+    avg_operating: number;
+    uptime_percentage: number;
+  };
+  data_points: UptimeDataPoint[];
+}
+
