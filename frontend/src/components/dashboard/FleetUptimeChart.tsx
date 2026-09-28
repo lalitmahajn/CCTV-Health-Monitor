@@ -61,7 +61,7 @@ export const FleetUptimeChart: React.FC<FleetUptimeChartProps> = ({
     loadData(period);
   }, [period, loadData]);
 
-  const totalActive = activeProvisionedCount ?? history?.total_provisioned ?? 218;
+  const totalActive = activeProvisionedCount ?? history?.total_provisioned ?? 0;
   const currentOperating = currentOnlineCount ?? history?.summary.current_operating ?? 0;
   const minOperating = history?.summary.min_operating ?? currentOperating;
   const currentOffline = Math.max(0, totalActive - currentOperating);
