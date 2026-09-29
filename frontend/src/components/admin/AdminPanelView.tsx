@@ -35,6 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useAuth } from '../../context/AuthContext';
 import * as api from '../../lib/api';
 import { useTimeFormat, getTimezoneInfo, formatTime, type TimeFormat } from '../../lib/timeUtils';
+import { soundManager } from '../../lib/audio';
 import { cn } from '../../lib/utils';
 
 interface AdminPanelViewProps {
@@ -615,7 +616,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   Engine Diagnostic Switches & Alarms
                 </CardTitle>
                 <CardDescription>
-                  Toggle real-time computer vision frame analysis and audio dispatch.
+                  Configure UI audio alerts and view upcoming computer vision analysis features.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -633,41 +634,50 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                     </div>
                     <Switch
                       checked={settings.enable_audio_alert !== 'false'}
-                      onCheckedChange={(checked) => setSettings({ ...settings, enable_audio_alert: checked ? 'true' : 'false' })}
+                      onCheckedChange={(checked) => {
+                        setSettings({ ...settings, enable_audio_alert: checked ? 'true' : 'false' });
+                        soundManager.setEnabled(checked);
+                      }}
                     />
                   </div>
 
                   {/* Black Screen Detection */}
-                  <div className="flex items-center justify-between p-3.5 rounded-lg border bg-muted/20">
+                  <div className="flex items-center justify-between p-3.5 rounded-lg border bg-muted/20 opacity-80">
                     <div className="space-y-0.5">
                       <div className="text-xs font-semibold flex items-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5 text-primary" />
+                        <Eye className="w-3.5 h-3.5 text-muted-foreground" />
                         <span>Black Screen Detection</span>
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-normal border-amber-500/40 text-amber-500 bg-amber-500/10">
+                          Coming Soon
+                        </Badge>
                       </div>
                       <div className="text-[11px] text-muted-foreground">
                         Flag outages if captured frames are pure black
                       </div>
                     </div>
                     <Switch
-                      checked={settings.enable_black_screen_detection === 'true'}
-                      onCheckedChange={(checked) => setSettings({ ...settings, enable_black_screen_detection: checked ? 'true' : 'false' })}
+                      disabled
+                      checked={false}
                     />
                   </div>
 
                   {/* Frozen Frame Detection */}
-                  <div className="flex items-center justify-between p-3.5 rounded-lg border bg-muted/20">
+                  <div className="flex items-center justify-between p-3.5 rounded-lg border bg-muted/20 opacity-80">
                     <div className="space-y-0.5">
                       <div className="text-xs font-semibold flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
                         <span>Frozen Frame Detection</span>
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-normal border-amber-500/40 text-amber-500 bg-amber-500/10">
+                          Coming Soon
+                        </Badge>
                       </div>
                       <div className="text-[11px] text-muted-foreground">
                         Flag feeds when consecutive frames are identical
                       </div>
                     </div>
                     <Switch
-                      checked={settings.enable_frozen_frame_detection === 'true'}
-                      onCheckedChange={(checked) => setSettings({ ...settings, enable_frozen_frame_detection: checked ? 'true' : 'false' })}
+                      disabled
+                      checked={false}
                     />
                   </div>
                 </div>
