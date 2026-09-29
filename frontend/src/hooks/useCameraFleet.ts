@@ -4,7 +4,7 @@ import * as api from '../lib/api';
 import { useSSELiveStream } from './useSSELiveStream';
 import { soundManager } from '../lib/audio';
 
-export type ActiveTab = 'dashboard' | 'matrix' | 'incidents' | 'inventory' | 'settings' | 'admin';
+export type ActiveTab = 'dashboard' | 'matrix' | 'incidents' | 'inventory' | 'admin';
 
 export function useCameraFleet() {
   const [cameras, setCameras] = useState<Camera[]>([]);

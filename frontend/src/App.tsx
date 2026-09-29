@@ -7,7 +7,6 @@ import { FleetDashboardView } from './components/dashboard/FleetDashboardView';
 import { FleetMatrixView } from './components/matrix/FleetMatrixView';
 import { IncidentCommandView } from './components/incidents/IncidentCommandView';
 import { CameraInventoryView } from './components/inventory/CameraInventoryView';
-import { SettingsView } from './components/settings/SettingsView';
 import { AdminPanelView } from './components/admin/AdminPanelView';
 import { CameraDrawer } from './components/drawer/CameraDrawer';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -128,10 +127,6 @@ const MainFleetApp: React.FC = () => {
 
             {activeTab === 'admin' && (
               <AdminPanelView onFleetReload={refreshFleet} />
-            )}
-
-            {activeTab === 'settings' && (
-              <SettingsView onFleetReload={refreshFleet} />
             )}
           </>
         )}

@@ -5,7 +5,6 @@ import {
   LayoutGrid,
   AlertTriangle, 
   Server, 
-  Settings, 
   Shield,
   LogOut,
   Volume2, 
@@ -103,11 +102,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       id: 'admin',
       label: 'Admin',
       icon: <Shield className="w-3.5 h-3.5" />,
-    },
-    {
-      id: 'settings',
-      label: 'Settings',
-      icon: <Settings className="w-3.5 h-3.5" />,
     },
   ];
 

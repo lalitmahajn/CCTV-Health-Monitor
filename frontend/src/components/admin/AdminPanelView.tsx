@@ -15,7 +15,14 @@ import {
   Send,
   Lock,
   Terminal,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Clock,
+  HardDrive,
+  Volume2,
+  Eye,
+  Sliders,
+  Sparkles,
+  FlaskConical
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../ui/card';
@@ -27,6 +34,8 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { useAuth } from '../../context/AuthContext';
 import * as api from '../../lib/api';
+import { useTimeFormat, getTimezoneInfo, formatTime, type TimeFormat } from '../../lib/timeUtils';
+import { cn } from '../../lib/utils';
 
 interface AdminPanelViewProps {
   onFleetReload?: () => void;
@@ -52,11 +61,40 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // --- Time Format State & Live Preview Clock ---
+  const [timeFormat, setTimeFormatState] = useTimeFormat();
+  const [clockNow, setClockNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setClockNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const tzInfo = React.useMemo(() => getTimezoneInfo(), []);
+  const liveTime12h = formatTime(clockNow, '12h', true);
+  const liveTime24h = formatTime(clockNow, '24h', true);
+
+  const handleTimeFormatChange = async (fmt: TimeFormat) => {
+    setTimeFormatState(fmt);
+    setSettings((prev) => ({ ...prev, time_format: fmt }));
+    try {
+      await api.updateSettings({ time_format: fmt });
+    } catch (e) {
+      console.warn('Could not persist time format:', e);
+    }
+  };
+
   // --- Alert Test State ---
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [emailTestStatus, setEmailTestStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // --- Fleet Maintenance State ---
+  // --- NVR Bay Renaming State ---
+  const [nvrOldName, setNvrOldName] = useState('NVR 01');
+  const [nvrNewName, setNvrNewName] = useState('');
+  const [isRenamingNvr, setIsRenamingNvr] = useState(false);
+  const [renameStatus, setRenameStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // --- Fleet Maintenance & Simulator State ---
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -65,6 +103,8 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
   const [isReSeedModalOpen, setIsReSeedModalOpen] = useState(false);
   const [reSeedConfirmText, setReSeedConfirmText] = useState('');
   const [isReSeeding, setIsReSeeding] = useState(false);
+  const [isSeedingSimulator, setIsSeedingSimulator] = useState(false);
+  const [simulatorStatus, setSimulatorStatus] = useState<string | null>(null);
 
   // --- Diagnostics & Audit State ---
   const [diagnostics, setDiagnostics] = useState<any>(null);
@@ -78,6 +118,9 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
         setIsSettingsLoading(true);
         const data = await api.fetchSettings();
         setSettings(data);
+        if (data.time_format === '12h' || data.time_format === '24h') {
+          setTimeFormatState(data.time_format);
+        }
       } catch (err: any) {
         setSettingsStatus({ type: 'error', message: err.message || 'Failed to load settings' });
       } finally {
@@ -85,7 +128,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
       }
     };
     loadSettings();
-  }, []);
+  }, [setTimeFormatState]);
 
   // Load Diagnostics & Audit Logs when tab selected
   useEffect(() => {
@@ -152,9 +195,14 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
     setSettingsStatus(null);
     try {
       setIsSavingSettings(true);
-      await api.updateSettings(settings);
-      setSettingsStatus({ type: 'success', message: 'Engine settings successfully updated and applied' });
+      const payload: Record<string, string> = {
+        ...settings,
+        scan_interval: settings.ping_interval_seconds || settings.scan_interval || '30'
+      };
+      await api.updateSettings(payload);
+      setSettingsStatus({ type: 'success', message: 'Settings successfully updated and applied to running engine' });
       if (onFleetReload) onFleetReload();
+      setTimeout(() => setSettingsStatus(null), 4000);
     } catch (err: any) {
       setSettingsStatus({ type: 'error', message: err.message || 'Failed to save settings' });
     } finally {
@@ -168,10 +216,29 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
       setIsTestingEmail(true);
       const res = await api.testSmtpSettings();
       setEmailTestStatus({ type: 'success', message: res.message });
+      setTimeout(() => setEmailTestStatus(null), 6000);
     } catch (err: any) {
       setEmailTestStatus({ type: 'error', message: err.message || 'SMTP test failed' });
     } finally {
       setIsTestingEmail(false);
+    }
+  };
+
+  const handleRenameNvr = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nvrNewName.trim()) return;
+    try {
+      setIsRenamingNvr(true);
+      setRenameStatus(null);
+      const res = await api.renameNvr(nvrOldName.trim(), nvrNewName.trim());
+      setRenameStatus({ type: 'success', message: `${res.message} (${res.cameras_updated} channels updated)` });
+      setNvrNewName('');
+      if (onFleetReload) onFleetReload();
+      setTimeout(() => setRenameStatus(null), 4000);
+    } catch (err: any) {
+      setRenameStatus({ type: 'error', message: err.message || 'Rename failed' });
+    } finally {
+      setIsRenamingNvr(false);
     }
   };
 
@@ -225,12 +292,34 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
       const data = await res.json();
       setIsReSeedModalOpen(false);
       setReSeedConfirmText('');
-      setScanStatus(`Fleet re-seeded: ${data.count} channels.`);
+      setScanStatus(`Fleet re-seeded: ${data.count || 270} channels.`);
       if (onFleetReload) onFleetReload();
     } catch (err: any) {
       alert(`Re-seed failed: ${err.message}`);
     } finally {
       setIsReSeeding(false);
+    }
+  };
+
+  const handleSeedSimulator = async () => {
+    if (!window.confirm('Warning: This will clear current camera data and generate 270 synthetic test cameras across 9 NVRs. Continue?')) {
+      return;
+    }
+    try {
+      setIsSeedingSimulator(true);
+      setSimulatorStatus('Seeding 270 test cameras across 9 NVR bays...');
+      const res = await fetch('/api/simulator/seed-270', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const data = await res.json();
+      setSimulatorStatus(`Success: ${data.message || '270 cameras provisioned'}`);
+      if (onFleetReload) onFleetReload();
+      setTimeout(() => setSimulatorStatus(null), 4000);
+    } catch (err: any) {
+      setSimulatorStatus(`Error: ${err.message || 'Seeding failed'}`);
+    } finally {
+      setIsSeedingSimulator(false);
     }
   };
 
@@ -244,7 +333,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
             Admin & System Control Panel
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Enterprise single-gatekeeper configuration, engine telemetry tuning, and audit administration.
+            Enterprise single-gatekeeper configuration, engine telemetry tuning, alert channels, and recorder administration.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -280,7 +369,9 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
           </TabsTrigger>
         </TabsList>
 
+        {/* ============================================================== */}
         {/* 1. Account & Security Sub-View */}
+        {/* ============================================================== */}
         <TabsContent value="account" className="mt-6 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2">
@@ -406,38 +497,41 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
           </div>
         </TabsContent>
 
+        {/* ============================================================== */}
         {/* 2. Engine Tuning Sub-View */}
-        <TabsContent value="engine" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-primary" />
-                Monitoring Engine Telemetry Tuning
-              </CardTitle>
-              <CardDescription>
-                Configure background polling cadence, TCP timeout limits, and failure thresholds.
-              </CardDescription>
-            </CardHeader>
-            <form onSubmit={handleSaveSettings}>
-              <CardContent className="space-y-6">
-                {settingsStatus && (
-                  <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
-                    settingsStatus.type === 'success' 
-                      ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400' 
-                      : 'bg-destructive/10 border border-destructive/30 text-destructive'
-                  }`}>
-                    {settingsStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-                    <span>{settingsStatus.message}</span>
-                  </div>
-                )}
+        {/* ============================================================== */}
+        <TabsContent value="engine" className="mt-6 space-y-6">
+          <form onSubmit={handleSaveSettings} className="space-y-6">
+            {settingsStatus && (
+              <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
+                settingsStatus.type === 'success' 
+                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400' 
+                  : 'bg-destructive/10 border border-destructive/30 text-destructive'
+              }`}>
+                {settingsStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span>{settingsStatus.message}</span>
+              </div>
+            )}
 
+            {/* Core Engine Timing */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-primary" />
+                  Core Scanning Engine Timing & Probing
+                </CardTitle>
+                <CardDescription>
+                  Configure background polling cadence, TCP timeout limits, and failure thresholds.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold">TCP Ping Interval (seconds)</label>
                     <Input
                       type="number"
-                      value={settings.ping_interval_seconds || '30'}
-                      onChange={(e) => setSettings({ ...settings, ping_interval_seconds: e.target.value })}
+                      value={settings.ping_interval_seconds || settings.scan_interval || '30'}
+                      onChange={(e) => setSettings({ ...settings, ping_interval_seconds: e.target.value, scan_interval: e.target.value })}
                       disabled={isSettingsLoading}
                       min="5"
                       max="300"
@@ -459,7 +553,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold">Failure Threshold</label>
+                    <label className="text-xs font-semibold">Consecutive Failure Threshold</label>
                     <Input
                       type="number"
                       value={settings.failure_threshold || '2'}
@@ -469,6 +563,19 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                       max="10"
                     />
                     <p className="text-[11px] text-muted-foreground">Consecutive failures before declaring OFFLINE outage.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold">Latency Warning Threshold (ms)</label>
+                    <Input
+                      type="number"
+                      value={settings.latency_warning_threshold_ms || '1500'}
+                      onChange={(e) => setSettings({ ...settings, latency_warning_threshold_ms: e.target.value })}
+                      disabled={isSettingsLoading}
+                      min="100"
+                      max="5000"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Latency threshold for WARNING status mark.</p>
                   </div>
 
                   <div className="space-y-1.5">
@@ -496,39 +603,204 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                     />
                     <p className="text-[11px] text-muted-foreground">Cadence for periodic JPEG thumbnail grabs.</p>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold">Time Format</label>
-                    <div className="flex items-center gap-3 pt-2">
-                      <span className={`text-xs ${settings.time_format === '12h' ? 'font-bold text-primary' : 'text-muted-foreground'}`}>12-Hour</span>
-                      <Switch
-                        checked={settings.time_format === '24h'}
-                        onCheckedChange={(checked) => setSettings({ ...settings, time_format: checked ? '24h' : '12h' })}
-                        disabled={isSettingsLoading}
-                      />
-                      <span className={`text-xs ${settings.time_format === '24h' ? 'font-bold text-primary' : 'text-muted-foreground'}`}>24-Hour (Military)</span>
+            {/* Feature Flags & Computer Vision Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-primary" />
+                  Engine Diagnostic Switches & Alarms
+                </CardTitle>
+                <CardDescription>
+                  Toggle real-time computer vision frame analysis and audio dispatch.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Audio Alert Toggle */}
+                  <div className="flex items-center justify-between p-3.5 rounded-lg border bg-muted/20">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-semibold flex items-center gap-1.5">
+                        <Volume2 className="w-3.5 h-3.5 text-primary" />
+                        <span>Audio Alert Chime</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Audible sound alert upon camera outage detection
+                      </div>
                     </div>
+                    <Switch
+                      checked={settings.enable_audio_alert !== 'false'}
+                      onCheckedChange={(checked) => setSettings({ ...settings, enable_audio_alert: checked ? 'true' : 'false' })}
+                    />
+                  </div>
+
+                  {/* Black Screen Detection */}
+                  <div className="flex items-center justify-between p-3.5 rounded-lg border bg-muted/20">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-semibold flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5 text-primary" />
+                        <span>Black Screen Detection</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Flag outages if captured frames are pure black
+                      </div>
+                    </div>
+                    <Switch
+                      checked={settings.enable_black_screen_detection === 'true'}
+                      onCheckedChange={(checked) => setSettings({ ...settings, enable_black_screen_detection: checked ? 'true' : 'false' })}
+                    />
+                  </div>
+
+                  {/* Frozen Frame Detection */}
+                  <div className="flex items-center justify-between p-3.5 rounded-lg border bg-muted/20">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-semibold flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <span>Frozen Frame Detection</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Flag feeds when consecutive frames are identical
+                      </div>
+                    </div>
+                    <Switch
+                      checked={settings.enable_frozen_frame_detection === 'true'}
+                      onCheckedChange={(checked) => setSettings({ ...settings, enable_frozen_frame_detection: checked ? 'true' : 'false' })}
+                    />
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-end border-t pt-4">
-                <Button type="submit" disabled={isSavingSettings || isSettingsLoading} className="gap-2">
-                  {isSavingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />}
-                  Save Engine Settings
-                </Button>
-              </CardFooter>
-            </form>
-          </Card>
+            </Card>
+
+            {/* Time & Regional Display Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    Time & Regional Display
+                  </CardTitle>
+                  <Badge variant="outline" className="text-[11px] font-mono border-border/60">
+                    {tzInfo.offset} • {tzInfo.name}
+                  </Badge>
+                </div>
+                <CardDescription>
+                  Configure clock display and timestamp formatting across the fleet dashboard, uptime charts, and incident logs.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* 12-Hour Option */}
+                  <button
+                    type="button"
+                    data-testid="time-format-12h"
+                    onClick={() => handleTimeFormatChange('12h')}
+                    className={cn(
+                      "flex items-start justify-between p-4 rounded-lg border text-left cursor-pointer transition-all w-full",
+                      timeFormat === '12h'
+                        ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/40 shadow-xs"
+                        : "border-border/60 hover:border-border hover:bg-muted/30 text-muted-foreground"
+                    )}
+                  >
+                    <div className="space-y-1">
+                      <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                        <span>12-Hour Format</span>
+                        {timeFormat === '12h' && (
+                          <Badge variant="default" className="text-[9px] h-4 px-1.5 font-normal">Active</Badge>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">Standard 12h clock with AM/PM indicator</div>
+                      <div className="font-mono text-[11px] text-primary pt-1 flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground">Live Preview:</span>
+                        <span className="font-semibold">{liveTime12h}</span>
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border flex items-center justify-center mt-0.5 shrink-0",
+                      timeFormat === '12h' ? "border-primary bg-primary/10" : "border-muted-foreground/40"
+                    )}>
+                      {timeFormat === '12h' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    </div>
+                  </button>
+
+                  {/* 24-Hour Option */}
+                  <button
+                    type="button"
+                    data-testid="time-format-24h"
+                    onClick={() => handleTimeFormatChange('24h')}
+                    className={cn(
+                      "flex items-start justify-between p-4 rounded-lg border text-left cursor-pointer transition-all w-full",
+                      timeFormat === '24h'
+                        ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/40 shadow-xs"
+                        : "border-border/60 hover:border-border hover:bg-muted/30 text-muted-foreground"
+                    )}
+                  >
+                    <div className="space-y-1">
+                      <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                        <span>24-Hour Format</span>
+                        {timeFormat === '24h' && (
+                          <Badge variant="default" className="text-[9px] h-4 px-1.5 font-normal">Active</Badge>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">Industrial 24h standard (00:00 - 23:59)</div>
+                      <div className="font-mono text-[11px] text-primary pt-1 flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground">Live Preview:</span>
+                        <span className="font-semibold">{liveTime24h}</span>
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border flex items-center justify-center mt-0.5 shrink-0",
+                      timeFormat === '24h' ? "border-primary bg-primary/10" : "border-muted-foreground/40"
+                    )}>
+                      {timeFormat === '24h' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    </div>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                    Detected Client Timezone
+                  </span>
+                  <span className="font-mono font-medium text-foreground">{tzInfo.name} ({tzInfo.offset})</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <CardFooter className="flex justify-end border-t pt-4 px-0">
+              <Button type="submit" disabled={isSavingSettings || isSettingsLoading} className="gap-2">
+                {isSavingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />}
+                Save All Engine Settings
+              </Button>
+            </CardFooter>
+          </form>
         </TabsContent>
 
+        {/* ============================================================== */}
         {/* 3. Alert Notification Channels */}
+        {/* ============================================================== */}
         <TabsContent value="alerts" className="mt-6 space-y-6">
+          {/* SMTP Email Alert Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Bell className="w-4 h-4 text-primary" />
-                SMTP Email Alert Dispatcher
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-primary" />
+                  SMTP Email Alert Dispatcher
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Email Alerts:</span>
+                  <Switch
+                    checked={settings.enable_email_alerts === 'true'}
+                    onCheckedChange={(checked) => setSettings({ ...settings, enable_email_alerts: checked ? 'true' : 'false' })}
+                  />
+                  <Badge variant={settings.enable_email_alerts === 'true' ? 'default' : 'secondary'} className="text-[10px]">
+                    {settings.enable_email_alerts === 'true' ? 'Enabled' : 'Disabled'}
+                  </Badge>
+                </div>
+              </div>
               <CardDescription>
                 Configure automated email dispatch upon camera outage and incident resolution.
               </CardDescription>
@@ -562,6 +834,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                       value={settings.smtp_port || '587'}
                       onChange={(e) => setSettings({ ...settings, smtp_port: e.target.value })}
                     />
+                    <p className="text-[10px] text-muted-foreground">587 = STARTTLS, 465 = SSL</p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold">SMTP Username / Sender Email</label>
@@ -582,14 +855,26 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Recipient Email Addresses</label>
-                  <Input
-                    placeholder="it-alerts@company.com, cctv-ops@company.com"
-                    value={settings.email_recipients || ''}
-                    onChange={(e) => setSettings({ ...settings, email_recipients: e.target.value })}
-                  />
-                  <p className="text-[11px] text-muted-foreground">Separate multiple recipients with commas.</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-semibold">TLS Encryption</div>
+                      <div className="text-[10px] text-muted-foreground">Secure STARTTLS handshake</div>
+                    </div>
+                    <Switch
+                      checked={settings.smtp_use_tls !== 'false'}
+                      onCheckedChange={(checked) => setSettings({ ...settings, smtp_use_tls: checked ? 'true' : 'false' })}
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="text-xs font-semibold">Recipient Email Addresses</label>
+                    <Input
+                      placeholder="it-alerts@company.com, cctv-ops@company.com"
+                      value={settings.email_recipients || ''}
+                      onChange={(e) => setSettings({ ...settings, email_recipients: e.target.value })}
+                    />
+                    <p className="text-[11px] text-muted-foreground">Separate multiple recipients with commas.</p>
+                  </div>
                 </div>
               </CardContent>
               <CardFooter className="flex justify-between border-t pt-4">
@@ -609,11 +894,60 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
               </CardFooter>
             </form>
           </Card>
+
+          {/* Telegram Bot Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Send className="w-4 h-4 text-sky-400" />
+                Telegram Bot Outage Broadcast
+              </CardTitle>
+              <CardDescription>
+                Instant push alerts directly to security on-duty Telegram channels and command chat rooms.
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSaveSettings}>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold">Telegram Bot Token</label>
+                    <Input
+                      type="password"
+                      placeholder="123456789:ABCDefgh..."
+                      value={settings.telegram_bot_token || ''}
+                      onChange={(e) => setSettings({ ...settings, telegram_bot_token: e.target.value })}
+                      className="font-mono text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Obtain from @BotFather on Telegram</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold">Telegram Chat ID</label>
+                    <Input
+                      type="text"
+                      placeholder="-1001234567890"
+                      value={settings.telegram_chat_id || ''}
+                      onChange={(e) => setSettings({ ...settings, telegram_chat_id: e.target.value })}
+                      className="font-mono text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Target group or direct chat identifier</p>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end border-t pt-4">
+                <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs">
+                  Save Telegram Configuration
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
         </TabsContent>
 
+        {/* ============================================================== */}
         {/* 4. Fleet Operations Sub-View */}
+        {/* ============================================================== */}
         <TabsContent value="fleet" className="mt-6 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Bulk CSV / Excel Import & Export */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -676,43 +1010,134 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
               </CardContent>
             </Card>
 
+            {/* NVR Bay Renaming Tool */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <RotateCw className="w-4 h-4 text-primary" />
-                  Fleet Diagnostic Actions
+                  <HardDrive className="w-4 h-4 text-emerald-500" />
+                  NVR Recorder Bay Renaming
                 </CardTitle>
-                <CardDescription>Instant background triggers and maintenance actions</CardDescription>
+                <CardDescription>
+                  Batch-rename all camera channels assigned to an NVR bay across the entire fleet
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="p-4 rounded-lg bg-muted/40 border space-y-2">
-                  <h4 className="text-xs font-semibold">Trigger Fleet Health Rescan</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Immediately pings all 266 camera channels across all NVRs concurrently.
-                  </p>
-                  <Button onClick={handleTriggerFleetScan} disabled={isScanning} size="sm" className="gap-2">
-                    <RotateCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-                    Trigger Fleet Scan
-                  </Button>
-                  {scanStatus && (
-                    <p className="text-xs text-primary font-mono mt-1">{scanStatus}</p>
+                <form onSubmit={handleRenameNvr} className="space-y-4">
+                  {renameStatus && (
+                    <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
+                      renameStatus.type === 'success' 
+                        ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400' 
+                        : 'bg-destructive/10 border border-destructive/30 text-destructive'
+                    }`}>
+                      {renameStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                      <span>{renameStatus.message}</span>
+                    </div>
                   )}
-                </div>
 
-                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
-                  <h4 className="text-xs font-semibold text-destructive">Danger Zone: Re-seed Master Fleet</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Resets fleet data back to original factory configuration.
-                  </p>
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    onClick={() => setIsReSeedModalOpen(true)}
-                    className="gap-2 text-xs"
-                  >
-                    Re-seed Fleet
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold">Current Bay Name</label>
+                      <Input
+                        type="text"
+                        required
+                        value={nvrOldName}
+                        onChange={(e) => setNvrOldName(e.target.value)}
+                        placeholder="e.g. NVR 01"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold">New Bay Name</label>
+                      <Input
+                        type="text"
+                        required
+                        value={nvrNewName}
+                        onChange={(e) => setNvrNewName(e.target.value)}
+                        placeholder="e.g. Main Gate Bay 01"
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit" disabled={isRenamingNvr || !nvrNewName.trim()} size="sm" className="gap-2">
+                    {isRenamingNvr ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />}
+                    Rename Recorder Bay
                   </Button>
-                </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Fleet Diagnostic & Maintenance Actions */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Health Rescan */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <RotateCw className="w-4 h-4 text-primary" />
+                  Fleet Diagnostic Health Scan
+                </CardTitle>
+                <CardDescription>
+                  Immediately pings all camera channels across all physical NVRs.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button onClick={handleTriggerFleetScan} disabled={isScanning} size="sm" className="gap-2 w-full">
+                  <RotateCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
+                  Trigger Fleet Rescan
+                </Button>
+                {scanStatus && (
+                  <p className="text-xs text-primary font-mono">{scanStatus}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Synthetic Fleet Generator */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4 text-amber-500" />
+                  Test Simulator (270 Cameras)
+                </CardTitle>
+                <CardDescription>
+                  Populates 270 synthetic cameras across 9 bays for load testing.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button 
+                  variant="outline" 
+                  onClick={handleSeedSimulator} 
+                  disabled={isSeedingSimulator} 
+                  size="sm" 
+                  className="gap-2 w-full border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                >
+                  {isSeedingSimulator ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
+                  Seed 270 Test Cameras
+                </Button>
+                {simulatorStatus && (
+                  <p className="text-xs text-amber-500 font-mono">{simulatorStatus}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Danger Zone: Reset Master Fleet */}
+            <Card className="border-destructive/20 bg-destructive/5">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2 text-destructive">
+                  <AlertCircle className="w-4 h-4" />
+                  Danger Zone: Re-seed Master
+                </CardTitle>
+                <CardDescription>
+                  Resets the camera fleet inventory back to factory default configuration.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => setIsReSeedModalOpen(true)}
+                  className="gap-2 w-full text-xs"
+                >
+                  Re-seed Master Fleet
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -752,7 +1177,9 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
           </Dialog>
         </TabsContent>
 
+        {/* ============================================================== */}
         {/* 5. Diagnostics & Audit Logs Sub-View */}
+        {/* ============================================================== */}
         <TabsContent value="diagnostics" className="mt-6 space-y-6">
           {/* Telemetry metrics cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
