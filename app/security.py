@@ -9,6 +9,7 @@ KEY_FILE = Path(".secret.key")
 ENV_KEY_VAR = "CCTV_SECRET_KEY"
 
 _cipher: Optional[Fernet] = None
+_raw_key: Optional[bytes] = None
 
 def get_cipher() -> Fernet:
     """
@@ -16,7 +17,7 @@ def get_cipher() -> Fernet:
     Loads key from CCTV_SECRET_KEY environment variable or .secret.key file.
     Generates a secure key if none exists.
     """
-    global _cipher
+    global _cipher, _raw_key
     if _cipher is not None:
         return _cipher
 
@@ -40,13 +41,23 @@ def get_cipher() -> Fernet:
                 pass
             key = generated
 
+    key_bytes = key.encode("utf-8") if isinstance(key, str) else key
     try:
-        _cipher = Fernet(key.encode("utf-8") if isinstance(key, str) else key)
+        _cipher = Fernet(key_bytes)
+        _raw_key = key_bytes
     except Exception:
         fresh = Fernet.generate_key()
         _cipher = Fernet(fresh)
+        _raw_key = fresh
 
     return _cipher
+
+
+def get_secret_key() -> bytes:
+    """Returns the secret key bytes for JWT signing and token verification."""
+    get_cipher()
+    global _raw_key
+    return _raw_key
 
 
 def encrypt_val(val: Optional[str]) -> Optional[str]:
