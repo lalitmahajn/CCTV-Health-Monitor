@@ -11,6 +11,14 @@ async def test_api_camera_endpoints(tmp_path):
     
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Verify unauthenticated request is blocked with 401
+        res_unauth = await client.get("/api/cameras")
+        assert res_unauth.status_code == 401
+
+        # Authenticate
+        res_login = await client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+        assert res_login.status_code == 200
+
         # Settings
         res = await client.get("/api/settings")
         assert res.status_code == 200

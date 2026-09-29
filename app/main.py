@@ -58,7 +58,9 @@ def create_app(db_path: str = None) -> FastAPI:
     setup_routes(app)
 
     # SSE Event Stream endpoint
-    @app.get("/api/events")
+    from fastapi import Depends
+    from app.auth import require_admin
+    @app.get("/api/events", dependencies=[Depends(require_admin)])
     async def sse_events():
         async def event_generator():
             q = web_notifier.subscribe()

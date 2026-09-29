@@ -1,6 +1,6 @@
 import json
 from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, HTTPException, UploadFile, File, Response, Request, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Response, Request, BackgroundTasks, Depends
 from pydantic import BaseModel
 from app.models import (
     CameraRepository, NvrRepository, IncidentRepository, SettingsRepository,
@@ -53,7 +53,10 @@ class UpdateCredentialsRequest(BaseModel):
     new_password: str
 
 def setup_routes(app):
-    router = APIRouter()
+    public_router = APIRouter()
+    protected_router = APIRouter(dependencies=[Depends(require_admin)])
+    router = protected_router
+
     cam_repo = CameraRepository(app.state.db_path)
     nvr_repo = NvrRepository(app.state.db_path)
     inc_repo = IncidentRepository(app.state.db_path)
@@ -64,9 +67,9 @@ def setup_routes(app):
     alert_mgr = app.state.alert_manager
     web_notifier = app.state.web_notifier
 
-    # --- Auth & Admin Endpoints ---
+    # --- Public Auth Endpoints ---
 
-    @router.get("/auth/me")
+    @public_router.get("/auth/me")
     async def get_me(request: Request):
         payload = await get_optional_admin(request)
         if not payload:
@@ -80,7 +83,7 @@ def setup_routes(app):
             "last_login": user.get("last_login_at")
         }
 
-    @router.post("/auth/login")
+    @public_router.post("/auth/login")
     async def login(payload: LoginRequest, request: Request, response: Response):
         client_ip = request.client.host if request.client else "127.0.0.1"
         user = await user_repo.get_by_username(payload.username)
@@ -101,7 +104,7 @@ def setup_routes(app):
         )
         return {"authenticated": True, "username": user["username"]}
 
-    @router.post("/auth/logout")
+    @public_router.post("/auth/logout")
     async def logout(request: Request, response: Response):
         client_ip = request.client.host if request.client else "127.0.0.1"
         payload = await get_optional_admin(request)
@@ -682,4 +685,5 @@ def setup_routes(app):
             await alert_mgr.dispatch_outage(cam, {"id": inc_id, "error_reason": payload.error_reason})
         return {"message": f"Simulated outage on camera {payload.camera_id}", "incident_id": inc_id}
 
-    app.include_router(router, prefix="/api")
+    app.include_router(public_router, prefix="/api")
+    app.include_router(protected_router, prefix="/api")

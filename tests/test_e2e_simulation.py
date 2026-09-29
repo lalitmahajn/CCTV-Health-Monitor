@@ -11,6 +11,10 @@ async def test_270_camera_simulation_lifecycle(tmp_path):
     
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Authenticate
+        login_res = await client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+        assert login_res.status_code == 200
+
         # 1. Seed 270 mock cameras across 10 NVRs
         res_seed = await client.post("/api/simulator/seed-270")
         assert res_seed.status_code == 200
