@@ -1,4 +1,6 @@
 import React from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LoginView } from './components/auth/LoginView';
 import { useCameraFleet } from './hooks/useCameraFleet';
 import { TopNavbar } from './components/layout/TopNavbar';
 import { FleetDashboardView } from './components/dashboard/FleetDashboardView';
@@ -9,7 +11,7 @@ import { SettingsView } from './components/settings/SettingsView';
 import { CameraDrawer } from './components/drawer/CameraDrawer';
 import { Loader2, AlertCircle } from 'lucide-react';
 
-export const App: React.FC = () => {
+const MainFleetApp: React.FC = () => {
   const {
     cameras,
     nvrs,
@@ -153,6 +155,35 @@ export const App: React.FC = () => {
         </div>
       </footer>
     </div>
+  );
+};
+
+const AppGatekeeper: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background space-y-4">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        <div className="text-sm font-mono text-muted-foreground">
+          Authenticating Fleet Command Session...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
+
+  return <MainFleetApp />;
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppGatekeeper />
+    </AuthProvider>
   );
 };
 
