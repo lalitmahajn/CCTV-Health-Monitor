@@ -47,11 +47,13 @@ def create_app(db_path: str = None) -> FastAPI:
         yield
         await engine.stop()
 
+    import time
     app = FastAPI(title="CCTV Health Monitoring System", lifespan=lifespan)
     app.state.db_path = app_db
     app.state.engine = engine
     app.state.alert_manager = alert_manager
     app.state.web_notifier = web_notifier
+    app.state.start_time = time.time()
 
     setup_routes(app)
 

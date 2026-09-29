@@ -1,8 +1,16 @@
 import json
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, UploadFile, File, Response, BackgroundTasks
+from typing import Optional, Dict, Any, List
+from fastapi import APIRouter, HTTPException, UploadFile, File, Response, Request, BackgroundTasks
 from pydantic import BaseModel
-from app.models import CameraRepository, NvrRepository, IncidentRepository, SettingsRepository
+from app.models import (
+    CameraRepository, NvrRepository, IncidentRepository, SettingsRepository,
+    UserRepository, AuditLogRepository
+)
+from app.database import get_db
+from app.auth import (
+    hash_password, verify_password, create_session_token, decode_session_token,
+    SESSION_COOKIE_NAME, get_optional_admin, require_admin
+)
 from app.csv_utils import parse_and_validate_csv, generate_csv_template, export_cameras_to_csv
 from app.simulator import seed_270_cameras
 
@@ -35,15 +43,139 @@ class OutageSimulate(BaseModel):
 class NvrRename(BaseModel):
     new_name: str
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class UpdateCredentialsRequest(BaseModel):
+    current_password: str
+    new_username: str
+    new_password: str
+
 def setup_routes(app):
     router = APIRouter()
     cam_repo = CameraRepository(app.state.db_path)
     nvr_repo = NvrRepository(app.state.db_path)
     inc_repo = IncidentRepository(app.state.db_path)
     settings_repo = SettingsRepository(app.state.db_path)
+    user_repo = UserRepository(app.state.db_path)
+    audit_repo = AuditLogRepository(app.state.db_path)
     engine = app.state.engine
     alert_mgr = app.state.alert_manager
     web_notifier = app.state.web_notifier
+
+    # --- Auth & Admin Endpoints ---
+
+    @router.get("/auth/me")
+    async def get_me(request: Request):
+        payload = await get_optional_admin(request)
+        if not payload:
+            return {"authenticated": False, "username": None}
+        user = await user_repo.get_by_username(payload["sub"])
+        if not user:
+            return {"authenticated": False, "username": None}
+        return {
+            "authenticated": True,
+            "username": user["username"],
+            "last_login": user.get("last_login_at")
+        }
+
+    @router.post("/auth/login")
+    async def login(payload: LoginRequest, request: Request, response: Response):
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        user = await user_repo.get_by_username(payload.username)
+        if not user or not verify_password(payload.password, user["password_hash"]):
+            await audit_repo.create_entry("LOGIN_FAILED", f"Failed login attempt for user: {payload.username}", client_ip)
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+        
+        await user_repo.update_last_login(user["id"])
+        await audit_repo.create_entry("LOGIN_SUCCESS", f"User {user['username']} logged in successfully", client_ip)
+        token = create_session_token(user["username"])
+        response.set_cookie(
+            key=SESSION_COOKIE_NAME,
+            value=token,
+            httponly=True,
+            samesite="lax",
+            max_age=7 * 24 * 3600,
+            path="/"
+        )
+        return {"authenticated": True, "username": user["username"]}
+
+    @router.post("/auth/logout")
+    async def logout(request: Request, response: Response):
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        payload = await get_optional_admin(request)
+        user_str = payload["sub"] if payload else "unknown"
+        response.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
+        await audit_repo.create_entry("LOGOUT", f"User {user_str} logged out", client_ip)
+        return {"authenticated": False, "message": "Logged out successfully"}
+
+    @router.put("/auth/credentials")
+    async def update_credentials(payload: UpdateCredentialsRequest, request: Request, response: Response):
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        admin_payload = await get_optional_admin(request)
+        current_username = admin_payload["sub"] if admin_payload else "admin"
+        user = await user_repo.get_by_username(current_username)
+        if not user:
+            async with get_db(app.state.db_path) as db:
+                async with db.execute("SELECT * FROM users LIMIT 1") as cur:
+                    row = await cur.fetchone()
+                    user = dict(row) if row else None
+        if not user:
+            raise HTTPException(status_code=404, detail="User account not found")
+
+        if not verify_password(payload.current_password, user["password_hash"]):
+            await audit_repo.create_entry("CREDENTIALS_UPDATE_FAILED", f"Invalid current password provided for {user['username']}", client_ip)
+            raise HTTPException(status_code=400, detail="Current password does not match")
+
+        if len(payload.new_password) < 8:
+            raise HTTPException(status_code=400, detail="New password must be at least 8 characters long")
+
+        new_username = payload.new_username.strip()
+        if not new_username:
+            raise HTTPException(status_code=400, detail="New username cannot be empty")
+
+        new_hash = hash_password(payload.new_password)
+        await user_repo.update_credentials(user["id"], new_username, new_hash)
+        await audit_repo.create_entry("CREDENTIALS_UPDATED", f"Credentials updated for user {new_username}", client_ip)
+
+        new_token = create_session_token(new_username)
+        response.set_cookie(
+            key=SESSION_COOKIE_NAME,
+            value=new_token,
+            httponly=True,
+            samesite="lax",
+            max_age=7 * 24 * 3600,
+            path="/"
+        )
+        return {"success": True, "username": new_username}
+
+    @router.get("/admin/audit-logs")
+    async def get_audit_logs(limit: int = 50, offset: int = 0):
+        return await audit_repo.get_recent(limit=limit, offset=offset)
+
+    @router.get("/admin/diagnostics")
+    async def get_diagnostics():
+        import time, os
+        start_time = getattr(app.state, "start_time", time.time())
+        uptime_seconds = int(time.time() - start_time)
+        db_file = app.state.db_path
+        db_size = os.path.getsize(db_file) if os.path.exists(db_file) else 0
+        cams = await cam_repo.get_all()
+        total_cams = len(cams)
+        online_cams = sum(1 for c in cams if c.get("status") == "ONLINE")
+        offline_cams = sum(1 for c in cams if c.get("status") == "OFFLINE")
+        active_incidents = len(await inc_repo.get_active())
+        return {
+            "uptime_seconds": uptime_seconds,
+            "db_size_bytes": db_size,
+            "db_path": db_file,
+            "total_cameras": total_cams,
+            "online_cameras": online_cams,
+            "offline_cameras": offline_cams,
+            "active_incidents": active_incidents,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
 
     @router.get("/nvrs")
     async def get_nvrs():
