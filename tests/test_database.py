@@ -36,11 +36,28 @@ async def test_camera_crud_and_masking(tmp_path):
     cam = await repo.get_by_id(cam_id)
     assert cam["name"] == "Gate Cam"
     assert cam["dvr_nvr_name"] == "NVR-01"
-    assert cam["masked_url"] == "rtsp://admin:*****@192.168.1.100:554/ch1"
+    assert cam["masked_url"] == "rtsp://*****:*****@192.168.1.100:554/ch1"
     assert cam["rtsp_url"] == "rtsp://admin:mypassword123@192.168.1.100:554/ch1"
     assert cam["status"] == "UNKNOWN"
 
+    # Verify database encryption at rest: raw SQLite row must be encrypted
+    import aiosqlite
+    async with aiosqlite.connect(test_db) as db:
+        async with db.execute("SELECT rtsp_url FROM cameras WHERE id = ?", (cam_id,)) as cur:
+            row = await cur.fetchone()
+            raw_stored = row[0]
+            assert raw_stored.startswith("enc:")
+            assert "admin" not in raw_stored
+            assert "mypassword123" not in raw_stored
+
 def test_mask_rtsp_url():
-    assert mask_rtsp_url("rtsp://admin:12345@192.168.1.10:554/ch1") == "rtsp://admin:*****@192.168.1.10:554/ch1"
+    # Both username and password masked
+    assert mask_rtsp_url("rtsp://admin:12345@192.168.1.10:554/ch1") == "rtsp://*****:*****@192.168.1.10:554/ch1"
+    # Password with complex symbols (@)
+    assert mask_rtsp_url("rtsp://arechs_cctv:scpl@2026@192.168.0.245:51554/ch1") == "rtsp://*****:*****@192.168.0.245:51554/ch1"
+    # Username only without password
+    assert mask_rtsp_url("rtsp://admin@192.168.1.10:554/ch1") == "rtsp://*****@192.168.1.10:554/ch1"
+    # URL without credentials
     assert mask_rtsp_url("rtsp://192.168.1.10:554/ch1") == "rtsp://192.168.1.10:554/ch1"
     assert mask_rtsp_url("invalid-url") == "invalid-url"
+

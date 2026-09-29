@@ -3,17 +3,12 @@ import aiosqlite
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from app.database import get_db
-
-def mask_rtsp_url(url: str) -> str:
-    """
-    Masks credentials in RTSP URL.
-    e.g. rtsp://admin:secret123@192.168.1.10:554/ch1 -> rtsp://admin:*****@192.168.1.10:554/ch1
-    """
-    if not url:
-        return url
-    # Pattern to match rtsp://username:password@
-    pattern = r'^(rtsp[s]?://[^:]+):([^@]+)@'
-    return re.sub(pattern, r'\1:*****@', url)
+from app.security import (
+    encrypt_val,
+    decrypt_val,
+    mask_rtsp_url,
+    is_masked_url,
+)
 
 class CameraRepository:
     def __init__(self, db_path: str = None):
@@ -23,12 +18,13 @@ class CameraRepository:
                      dvr_nvr_name: str = "", location: str = "",
                      port: int = 554, channel_no: str = "",
                      is_enabled: bool = True, is_no_cam: bool = False) -> int:
+        stored_url = encrypt_val(rtsp_url)
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("""
                 INSERT INTO cameras (name, dvr_nvr_name, location, ip_address, port, channel_no, rtsp_url, is_enabled, is_no_cam)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (name, dvr_nvr_name, location, ip_address, port, str(channel_no), rtsp_url, 1 if is_enabled else 0, 1 if is_no_cam else 0))
+            """, (name, dvr_nvr_name, location, ip_address, port, str(channel_no), stored_url, 1 if is_enabled else 0, 1 if is_no_cam else 0))
             await db.commit()
             return cursor.lastrowid
 
@@ -40,7 +36,9 @@ class CameraRepository:
                 if not row:
                     return None
                 data = dict(row)
-                data["masked_url"] = mask_rtsp_url(data["rtsp_url"])
+                raw_stored = data.get("rtsp_url", "")
+                data["masked_url"] = mask_rtsp_url(raw_stored)
+                data["rtsp_url"] = decrypt_val(raw_stored)
                 return data
 
     async def get_all(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
@@ -55,9 +53,12 @@ class CameraRepository:
                 results = []
                 for row in rows:
                     item = dict(row)
-                    item["masked_url"] = mask_rtsp_url(item["rtsp_url"])
+                    raw_stored = item.get("rtsp_url", "")
+                    item["masked_url"] = mask_rtsp_url(raw_stored)
+                    item["rtsp_url"] = decrypt_val(raw_stored)
                     results.append(item)
                 return results
+
 
     async def update_status(self, camera_id: int, status: str, consecutive_failures: int,
                             latency_ms: float = 0.0, last_error: str = None,
@@ -101,6 +102,11 @@ class CameraRepository:
         params = []
         for k, v in fields.items():
             if k in allowed:
+                if k == "rtsp_url":
+                    if is_masked_url(v):
+                        # Masked placeholder passed from UI, keep existing encrypted URL
+                        continue
+                    v = encrypt_val(v)
                 set_clauses.append(f"{k} = ?")
                 params.append(v)
         if not set_clauses:
@@ -113,6 +119,7 @@ class CameraRepository:
             cursor = await db.execute(f"UPDATE cameras SET {', '.join(set_clauses)} WHERE id = ?", params)
             await db.commit()
             return cursor.rowcount > 0
+
 
     async def toggle_no_cam(self, camera_id: int) -> Optional[Dict[str, Any]]:
         cam = await self.get_by_id(camera_id)
@@ -280,24 +287,39 @@ class IncidentRepository:
 
 
 class SettingsRepository:
+    SENSITIVE_KEYS = {"smtp_password", "telegram_bot_token"}
+
     def __init__(self, db_path: str = None):
         self.db_path = db_path
 
-    async def get_all(self) -> Dict[str, str]:
+    async def get_all(self, decrypt: bool = True) -> Dict[str, str]:
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute("SELECT key, value FROM settings") as cursor:
                 rows = await cursor.fetchall()
-                return {r["key"]: r["value"] for r in rows}
+                result = {}
+                for r in rows:
+                    k, v = r["key"], r["value"]
+                    if decrypt and k in self.SENSITIVE_KEYS and v:
+                        v = decrypt_val(v)
+                    result[k] = v
+                return result
 
     async def get(self, key: str, default: Any = None) -> Any:
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute("SELECT value FROM settings WHERE key = ?", (key,)) as cursor:
                 row = await cursor.fetchone()
-                return row["value"] if row else default
+                if not row:
+                    return default
+                val = row["value"]
+                if key in self.SENSITIVE_KEYS and val:
+                    val = decrypt_val(val)
+                return val
 
     async def set(self, key: str, value: str, description: str = ""):
+        if key in self.SENSITIVE_KEYS and value:
+            value = encrypt_val(value)
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             await db.execute("""
@@ -311,9 +333,16 @@ class SettingsRepository:
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             for k, v in settings_dict.items():
+                if k in self.SENSITIVE_KEYS:
+                    # Ignore placeholder mask if user didn't change password
+                    if v in ("••••••••", "********", "******"):
+                        continue
+                    if v:
+                        v = encrypt_val(v)
                 await db.execute("""
                     INSERT INTO settings (key, value)
                     VALUES (?, ?)
                     ON CONFLICT(key) DO UPDATE SET value = excluded.value
                 """, (k, str(v)))
             await db.commit()
+

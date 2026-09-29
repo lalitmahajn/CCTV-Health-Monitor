@@ -153,7 +153,10 @@ def setup_routes(app):
 
     @router.get("/cameras")
     async def get_cameras(enabled_only: bool = False):
-        return await cam_repo.get_all(enabled_only=enabled_only)
+        cams = await cam_repo.get_all(enabled_only=enabled_only)
+        for c in cams:
+            c["rtsp_url"] = c["masked_url"]
+        return cams
 
     @router.post("/cameras", status_code=201)
     async def create_camera(payload: CameraCreate):
@@ -175,7 +178,9 @@ def setup_routes(app):
         cam = await cam_repo.get_by_id(camera_id)
         if not cam:
             raise HTTPException(status_code=404, detail="Camera not found")
+        cam["rtsp_url"] = cam["masked_url"]
         return cam
+
 
     @router.put("/cameras/{camera_id}")
     async def update_camera(camera_id: int, payload: CameraUpdate):
@@ -454,7 +459,13 @@ def setup_routes(app):
 
     @router.get("/settings")
     async def get_settings():
-        return await settings_repo.get_all()
+        s = await settings_repo.get_all()
+        if s.get("smtp_password"):
+            s["smtp_password"] = "••••••••"
+        if s.get("telegram_bot_token"):
+            s["telegram_bot_token"] = "••••••••"
+        return s
+
 
     @router.post("/settings")
     async def update_settings(payload: Dict[str, str]):

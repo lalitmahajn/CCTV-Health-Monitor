@@ -106,5 +106,20 @@ async def init_db(db_path: str = None):
                 "INSERT OR IGNORE INTO settings (key, value, description) VALUES (?, ?, ?)",
                 (k, v, desc)
             )
-            
+
+        # Migrate & secure database at rest: encrypt any plaintext RTSP URLs and sensitive settings
+        from app.security import encrypt_val
+        async with db.execute("SELECT id, rtsp_url FROM cameras") as cursor:
+            cams = await cursor.fetchall()
+            for cam_id, url in cams:
+                if url and not url.startswith("enc:"):
+                    await db.execute("UPDATE cameras SET rtsp_url = ? WHERE id = ?", (encrypt_val(url), cam_id))
+
+        async with db.execute("SELECT key, value FROM settings WHERE key IN ('smtp_password', 'telegram_bot_token')") as cursor:
+            s_rows = await cursor.fetchall()
+            for key, val in s_rows:
+                if val and not val.startswith("enc:"):
+                    await db.execute("UPDATE settings SET value = ? WHERE key = ?", (encrypt_val(val), key))
+
         await db.commit()
+

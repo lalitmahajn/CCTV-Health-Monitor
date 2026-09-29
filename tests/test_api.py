@@ -32,8 +32,12 @@ async def test_api_camera_endpoints(tmp_path):
         cams = res_get.json()
         assert len(cams) == 1
         assert "secret" not in cams[0]["masked_url"]
+        assert "admin" not in cams[0]["masked_url"]
+        assert "secret" not in cams[0]["rtsp_url"]
+        assert "admin" not in cams[0]["rtsp_url"]
         assert cams[0]["dvr_nvr_name"] == "NVR-01"
         assert cams[0]["channel_no"] == "01"
+
 
         # Update Settings
         res_set = await client.post("/api/settings", json={"failure_threshold": "3"})

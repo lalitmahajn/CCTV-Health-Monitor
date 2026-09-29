@@ -127,7 +127,8 @@ def export_cameras_to_csv(cameras: List[Dict[str, Any]]) -> str:
             cam.get("ip_address", ""),
             cam.get("port", 554),
             cam.get("channel_no", ""),
-            cam.get("rtsp_url", ""),
+            cam.get("masked_url") or cam.get("rtsp_url", ""),
             "true" if cam.get("is_enabled", 1) else "false"
+
         ])
     return output.getvalue()

@@ -32,9 +32,12 @@ skills-lock.json
 
 # Environment and secrets
 .env
+*.key
+.secret.key
 .venv/
 venv/
 ENV/
+
 
 # Worktrees
 .worktrees/
