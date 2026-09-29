@@ -6,6 +6,8 @@ import {
   AlertTriangle, 
   Server, 
   Settings, 
+  Shield,
+  LogOut,
   Volume2, 
   VolumeX, 
   Sun, 
@@ -27,6 +29,7 @@ import type { ActiveTab } from '@/hooks/useCameraFleet';
 import type { SSEConnectionStatus } from '@/hooks/useSSELiveStream';
 import * as api from '@/lib/api';
 import { useTimeFormat, formatTime } from '@/lib/timeUtils';
+import { useAuth } from '@/context/AuthContext';
 
 interface TopNavbarProps {
   activeTab: ActiveTab;
@@ -56,6 +59,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [timeFormat] = useTimeFormat();
+  const { user, logout } = useAuth();
 
   const handleScanAll = async () => {
     try {
@@ -94,6 +98,11 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       id: 'inventory',
       label: 'Inventory',
       icon: <Server className="w-3.5 h-3.5" />,
+    },
+    {
+      id: 'admin',
+      label: 'Admin',
+      icon: <Shield className="w-3.5 h-3.5" />,
     },
     {
       id: 'settings',
@@ -247,6 +256,31 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                 <p>Refresh fleet data</p>
               </TooltipContent>
             </Tooltip>
+
+            {/* User Badge & Logout */}
+            {user && (
+              <div className="flex items-center gap-1.5 border-l border-border/60 pl-2 ml-1">
+                <Badge variant="outline" className="hidden sm:inline-flex items-center gap-1 text-[11px] h-7 font-mono font-medium border-border/80">
+                  <Shield className="w-3 h-3 text-primary" />
+                  <span>{user.username}</span>
+                </Badge>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={logout}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Log out of Fleet Command</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            )}
           </TooltipProvider>
         </div>
       </div>
