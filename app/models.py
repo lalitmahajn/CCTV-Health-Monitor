@@ -346,3 +346,68 @@ class SettingsRepository:
                 """, (k, str(v)))
             await db.commit()
 
+
+class UserRepository:
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path
+
+    async def get_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        async with get_db(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM users WHERE username = ?", (username,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+
+    async def get_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        async with get_db(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM users WHERE id = ?", (user_id,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+
+    async def update_credentials(self, user_id: int, new_username: str, new_password_hash: str) -> bool:
+        from datetime import datetime, timezone
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        async with get_db(self.db_path) as db:
+            cursor = await db.execute("""
+                UPDATE users 
+                SET username = ?, password_hash = ?, updated_at = ?
+                WHERE id = ?
+            """, (new_username, new_password_hash, now_str, user_id))
+            await db.commit()
+            return cursor.rowcount > 0
+
+    async def update_last_login(self, user_id: int):
+        from datetime import datetime, timezone
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        async with get_db(self.db_path) as db:
+            await db.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (now_str, user_id))
+            await db.commit()
+
+
+class AuditLogRepository:
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path
+
+    async def create_entry(self, event_type: str, description: str, ip_address: str = "127.0.0.1") -> int:
+        from datetime import datetime, timezone
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        async with get_db(self.db_path) as db:
+            cursor = await db.execute("""
+                INSERT INTO audit_logs (timestamp, event_type, description, ip_address)
+                VALUES (?, ?, ?, ?)
+            """, (now_str, event_type, description, ip_address))
+            await db.commit()
+            return cursor.lastrowid
+
+    async def get_recent(self, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        async with get_db(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("""
+                SELECT * FROM audit_logs 
+                ORDER BY id DESC 
+                LIMIT ? OFFSET ?
+            """, (limit, offset)) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(r) for r in rows]
+

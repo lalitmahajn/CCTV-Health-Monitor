@@ -107,6 +107,46 @@ async def init_db(db_path: str = None):
                 (k, v, desc)
             )
 
+        # Users table
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                last_login_at DATETIME
+            )
+        """)
+
+        # Audit Logs table
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME NOT NULL,
+                event_type TEXT NOT NULL,
+                description TEXT NOT NULL,
+                ip_address TEXT
+            )
+        """)
+
+        # Seed default admin user if users table is empty
+        async with db.execute("SELECT COUNT(*) FROM users") as cursor:
+            count_row = await cursor.fetchone()
+            if count_row and count_row[0] == 0:
+                import bcrypt
+                from datetime import datetime, timezone
+                now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                admin_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode("utf-8")
+                await db.execute(
+                    "INSERT INTO users (username, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                    ("admin", admin_hash, now_str, now_str)
+                )
+                await db.execute(
+                    "INSERT INTO audit_logs (timestamp, event_type, description, ip_address) VALUES (?, ?, ?, ?)",
+                    (now_str, "SYSTEM_INITIALIZED", "Default admin account provisioned (username: admin)", "127.0.0.1")
+                )
+
         # Migrate & secure database at rest: encrypt any plaintext RTSP URLs and sensitive settings
         from app.security import encrypt_val
         async with db.execute("SELECT id, rtsp_url FROM cameras") as cursor:

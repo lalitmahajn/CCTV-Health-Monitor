@@ -61,3 +61,24 @@ def test_mask_rtsp_url():
     assert mask_rtsp_url("rtsp://192.168.1.10:554/ch1") == "rtsp://192.168.1.10:554/ch1"
     assert mask_rtsp_url("invalid-url") == "invalid-url"
 
+
+@pytest.mark.asyncio
+async def test_users_and_audit_logs(tmp_path):
+    test_db = str(tmp_path / "test_auth.db")
+    await init_db(test_db)
+    
+    from app.models import UserRepository, AuditLogRepository
+    user_repo = UserRepository(test_db)
+    audit_repo = AuditLogRepository(test_db)
+    
+    # 1. Default user seeded
+    admin = await user_repo.get_by_username("admin")
+    assert admin is not None
+    assert admin["username"] == "admin"
+    assert admin["password_hash"].startswith("$2b$")
+    
+    # 2. Audit log recorded
+    logs = await audit_repo.get_recent(limit=10)
+    assert len(logs) >= 1
+    assert any("admin" in l["description"].lower() or "INITIALIZED" in l["event_type"] for l in logs)
+
