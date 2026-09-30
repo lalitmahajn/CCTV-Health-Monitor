@@ -980,7 +980,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t pt-4">
+              <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t pt-4 sm:pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -1000,7 +1000,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                       {alertSaveStatus.message}
                     </span>
                   )}
-                  <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs">
+                  <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs min-w-[230px] justify-center">
                     {isSavingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     Save Alert Configuration
                   </Button>
@@ -1314,20 +1314,22 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex items-center justify-between border-t pt-4">
-                {notificationSaveStatus && (
-                  <span className={`text-xs flex items-center gap-1 font-medium ${
-                    notificationSaveStatus.type === 'success' ? 'text-emerald-500' : 'text-destructive'
-                  }`}>
-                    {notificationSaveStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                    {notificationSaveStatus.message}
-                  </span>
-                )}
-                {!notificationSaveStatus && <span />}
-                <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs">
-                  {isSavingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  Save Notification Preferences
-                </Button>
+              <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t pt-4 sm:pt-4">
+                <div />
+                <div className="flex items-center gap-3 justify-end">
+                  {notificationSaveStatus && (
+                    <span className={`text-xs flex items-center gap-1 font-medium ${
+                      notificationSaveStatus.type === 'success' ? 'text-emerald-500' : 'text-destructive'
+                    }`}>
+                      {notificationSaveStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                      {notificationSaveStatus.message}
+                    </span>
+                  )}
+                  <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs min-w-[230px] justify-center">
+                    {isSavingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Save Notification Preferences
+                  </Button>
+                </div>
               </CardFooter>
             </form>
           </Card>
@@ -1381,20 +1383,22 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex items-center justify-between border-t pt-4">
-                {telegramSaveStatus && (
-                  <span className={`text-xs flex items-center gap-1 font-medium ${
-                    telegramSaveStatus.type === 'success' ? 'text-emerald-500' : 'text-destructive'
-                  }`}>
-                    {telegramSaveStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                    {telegramSaveStatus.message}
-                  </span>
-                )}
-                {!telegramSaveStatus && <span />}
-                <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs">
-                  {isSavingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  Save Telegram Configuration
-                </Button>
+              <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t pt-4 sm:pt-4">
+                <div />
+                <div className="flex items-center gap-3 justify-end">
+                  {telegramSaveStatus && (
+                    <span className={`text-xs flex items-center gap-1 font-medium ${
+                      telegramSaveStatus.type === 'success' ? 'text-emerald-500' : 'text-destructive'
+                    }`}>
+                      {telegramSaveStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                      {telegramSaveStatus.message}
+                    </span>
+                  )}
+                  <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs min-w-[230px] justify-center">
+                    {isSavingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Save Telegram Configuration
+                  </Button>
+                </div>
               </CardFooter>
             </form>
           </Card>
