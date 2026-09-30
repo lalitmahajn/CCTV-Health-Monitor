@@ -16,7 +16,7 @@ def create_app(db_path: str = None) -> FastAPI:
     alert_manager = AlertManager()
     web_notifier = WebAlertNotifier()
     alert_manager.register(web_notifier)
-    alert_manager.register(EmailAlertNotifier())
+    alert_manager.register(EmailAlertNotifier(db_path=app_db))
     alert_manager.register(TelegramAlertNotifier())
 
     async def alert_callback(camera, transition):
