@@ -6,6 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%2B%20Uvicorn-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite%20%2B%20Tailwind-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
+[![shadcn/ui](https://img.shields.io/badge/UI-shadcn%2Fui-black.svg)](https://ui.shadcn.com/)
 [![OpenCV](https://img.shields.io/badge/Streaming-OpenCV%20%2B%20FFmpeg%20RTSP-5C3EE8.svg?logo=opencv&logoColor=white)](https://opencv.org/)
 [![Database](https://img.shields.io/badge/Database-SQLite%20(WAL%20Mode)-003B57.svg?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 
@@ -51,6 +52,7 @@ An enterprise-grade, real-time CCTV & NVR/DVR health surveillance solution desig
 - [Compiling the Windows Installer from Source](#-compiling-the-windows-installer-from-source)
 - [Security & Data Privacy](#-security--data-privacy)
 - [Troubleshooting & FAQs](#-troubleshooting--faqs)
+- [Acknowledgements](#-acknowledgements--open-source-credits)
 - [License](#-license)
 
 ---
@@ -380,6 +382,23 @@ The resulting installer is saved to:
 
 #### Q: Where are snapshot images stored on disk?
 - In the `static/snapshots/` folder in the application root (e.g. `C:\Program Files\CCTV Health Monitor\static\snapshots\`). Right-click the tray icon and click **Open Snapshots Folder** to access them directly.
+
+---
+
+## 🙏 Acknowledgements & Open-Source Credits
+
+This project is made possible thanks to the following open-source libraries and frameworks:
+
+- **[shadcn/ui](https://ui.shadcn.com/)** — Accessible, modular component architecture built on Radix UI and Tailwind CSS.
+- **[FastAPI](https://fastapi.tiangolo.com/)** — High-performance async web backend by [@tiangolo](https://github.com/tiangolo).
+- **[OpenCV](https://opencv.org/)** — Computer vision & RTSP frame decoding engine.
+- **[React](https://react.dev/)** & **[Vite](https://vitejs.dev/)** — Modern reactive frontend framework and blazing-fast build tool.
+- **[Tailwind CSS](https://tailwindcss.com/)** — Utility-first CSS framework for precision styling.
+- **[Lucide Icons](https://lucide.dev/)** — Clean and consistent UI iconography.
+- **[SQLite](https://www.sqlite.org/)** — Self-contained, zero-configuration SQL database engine.
+- **[Uvicorn](https://www.uvicorn.org/)** — Lightning-fast ASGI web server implementation.
+- **[Pystray](https://github.com/moses-palmer/pystray)** & **[Pillow](https://python-pillow.org/)** — Windows system tray integration & image manipulation library.
+- **[Inno Setup](https://jrsoftware.org/isinfo.php)** — Legendary Windows installer compiler by Jordan Russell.
 
 ---
 
