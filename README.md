@@ -6,7 +6,8 @@
 [![React](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript%20%2B%20Tailwind-61DAFB.svg)](https://react.dev/)
 [![OpenCV](https://img.shields.io/badge/Streaming-OpenCV%20%2B%20FFmpeg%20RTSP-red.svg)](https://opencv.org/)
 [![Database](https://img.shields.io/badge/Database-SQLite%20(WAL%20Mode)-003B57.svg)](https://www.sqlite.org/)
-[![License](https://img.shields.io/badge/License-Proprietary-lightgrey.svg)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-v1.0.0%20(Setup.exe)-blue.svg)](https://github.com/lalitmahajn/CCTV-Health-Monitor/releases/latest)
 
 An enterprise-grade, real-time CCTV & NVR/DVR health surveillance solution designed to monitor large fleets of IP cameras across industrial plants and enterprise facilities. Features **24/7 background telemetry**, **instant outage alerts**, **substream-accelerated thumbnail grabs**, **interactive multi-group inventory**, and a **native Windows System Tray application** with a turnkey Windows Setup Installer.
 
@@ -103,9 +104,11 @@ flowchart TD
 
 ### Option A: Windows Setup Wizard (.exe Installer) *(Recommended)*
 
-For production or client machines, use the turnkey standalone installer:
+For production or client machines, download and run the standalone installer:
 
-1. Download or copy **`installer_output\CCTV_Health_Monitor_Setup_v1.0.0.exe`**.
+[**⬇️ Download Latest Installer (`CCTV_Health_Monitor_Setup_v1.0.0.exe`)**](https://github.com/lalitmahajn/CCTV-Health-Monitor/releases/latest)
+
+1. Download **`CCTV_Health_Monitor_Setup_v1.0.0.exe`** from [GitHub Releases](https://github.com/lalitmahajn/CCTV-Health-Monitor/releases/latest) (or find it in `installer_output\` after building locally).
 2. Double-click the installer and follow the wizard prompts:
    - Select installation directory (Default: `C:\Program Files\CCTV Health Monitor`).
    - Choose whether to create a Desktop shortcut.
@@ -264,5 +267,5 @@ To compile an updated Windows installer after modifying frontend or backend code
 ---
 
 ## 📄 License
-
-Proprietary — Developed for Plant Surveillance & Infrastructure Health Monitoring. All rights reserved.
+ 
+This project is licensed under the [MIT License](LICENSE) — see the [LICENSE](LICENSE) file for details.
