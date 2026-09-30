@@ -25,8 +25,9 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [*] Copying database template to dist folder...
-copy /Y cctv_monitor.db dist\CCTV-Health-Monitor\
+echo [*] Ensuring clean state: excluding database and logs from installer...
+if exist dist\CCTV-Health-Monitor\cctv_monitor.db del /F /Q dist\CCTV-Health-Monitor\cctv_monitor.db*
+if exist dist\CCTV-Health-Monitor\cctv_service.log del /F /Q dist\CCTV-Health-Monitor\cctv_service.log
 
 echo.
 echo [3/3] Compiling Windows Setup Wizard with Inno Setup...

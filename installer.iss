@@ -41,12 +41,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "autostart"; Description: "Automatically start CCTV Health Monitor when Windows boots"; GroupDescription: "System Services:"
 
 [Files]
-Source: "dist\CCTV-Health-Monitor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\CCTV-Health-Monitor\*"; DestDir: "{app}"; Excludes: "*.db,*.db-shm,*.db-wal,*.log"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
-Name: "{group}\Open Web Dashboard"; Filename: "http://localhost:8000"
+Name: "{group}\Open Web Dashboard"; Filename: "http://localhost:8085"
 Name: "{group}\Snapshots Folder"; Filename: "{app}\static\snapshots"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\{#MyAppExeName}"
