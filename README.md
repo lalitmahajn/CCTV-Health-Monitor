@@ -408,8 +408,12 @@ This project is made possible thanks to the following open-source libraries and 
 If **CCTV Health Monitor** helps keep your surveillance feeds online, monitor facility health, or saves your security team time, please consider giving this project a **Star** on GitHub! It helps more developers and surveillance teams discover the tool.
 
 <p align="center">
-  <a href="https://github.com/lalitmahajn/CCTV-Health-Monitor">
-    <img src="https://api.star-history.com/svg?repos=lalitmahajn/CCTV-Health-Monitor&type=Date" alt="Star History Chart" width="80%" />
+  <a href="https://github.com/lalitmahajn/CCTV-Health-Monitor/stargazers">
+    <img src="https://img.shields.io/github/stars/lalitmahajn/CCTV-Health-Monitor?style=for-the-badge&logo=github&color=EA580C" alt="GitHub Stars" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/lalitmahajn/CCTV-Health-Monitor/network/members">
+    <img src="https://img.shields.io/github/forks/lalitmahajn/CCTV-Health-Monitor?style=for-the-badge&logo=github&color=2563EB" alt="GitHub Forks" />
   </a>
 </p>
 
