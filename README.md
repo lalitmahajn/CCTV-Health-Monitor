@@ -23,6 +23,10 @@ An enterprise-grade, real-time CCTV & NVR/DVR health surveillance solution desig
 > 🔑 **Default Credentials:** `Username: admin` | `Password: admin123` *(change immediately after first login under Admin Settings)*  
 > 🔒 **100% Local & Private:** Runs entirely on-premise within your LAN. Video feeds, credentials, and camera configurations never leave your local machine.
 
+<p align="center">
+  <img src="docs/images/dashboard_light.png" alt="CCTV Health Monitor - Executive Dashboard" width="100%" />
+</p>
+
 ---
 
 ## 📑 Table of Contents
@@ -107,11 +111,19 @@ flowchart TD
 - **Group by Status**: Isolate `Offline` channels first for rapid incident troubleshooting.
 - **Spare Channel Management**: Unused DVR ports can be toggled to `Spare / No Cam`, muting false alarms while keeping the port on record.
 
+<p align="center">
+  <img src="docs/images/inventory_light.png" alt="Multi-Group Camera Inventory" width="100%" />
+</p>
+
 ### 3. Substream-Accelerated Snapshot Engine
 - Auto-converts Dahua & CP Plus RTSP feeds to `subtype=1` (substream preview), cutting image capture time from **15+ seconds down to < 2.5 seconds**.
 - Automatic fallback to `subtype=0` for older analog DVRs or encoders that lack secondary streams.
 - **Batch Refresh All Snapshots**: Re-captures live keyframes across the entire fleet in parallel with live modal progress (`X / 218 processed`, `Y succeeded`, `Z failed`).
 - **Aspect Ratio Normalization**: Previews are normalized to 16:9 / 4:3 for clean grid rendering.
+
+<p align="center">
+  <img src="docs/images/matrix_light.png" alt="Fleet Visual Matrix Grid" width="100%" />
+</p>
 
 ### 4. Multi-Channel Incident Alerts & Notifications
 - **Configurable Outage Thresholds**: Generates incident tickets after $N$ consecutive probe failures to prevent flapping alerts.
@@ -119,6 +131,10 @@ flowchart TD
 - **Telegram Bot Integration**: Delivers formatted HTML alert messages with timestamps and locations to your security operations chat.
 - **SMTP Email Notifications**: Automated emails with configurable sender, recipient, and TLS/SSL authentication.
 - **Live Test Dispatch**: Verify bot tokens and SMTP credentials with a single click.
+
+<p align="center">
+  <img src="docs/images/incidents_light.png" alt="Incident Command Center" width="100%" />
+</p>
 
 ### 5. Spreadsheet (Excel / CSV) Import & Export
 - **One-Click Backup**: Export camera inventories, RTSP URLs, bays, and statuses to `.xlsx` or `.csv`.
@@ -134,9 +150,14 @@ flowchart TD
 | **`NVR Bay`** | Identifier of the physical NVR box | `DVR-01` |
 | **`Is Spare`** | Channel without an attached camera (`0` or `1`) | `0` |
 
-### 6. Enterprise Audit Logging
+### 6. Enterprise Audit Logging & Admin Controls
 - Timestamped audit ledger tracking user logins, password modifications, camera configuration changes, manual scans, and spare channel toggles.
 - Filterable and paginated for compliance audits.
+- Centralized notification service setup for Telegram bots and SMTP mailers.
+
+<p align="center">
+  <img src="docs/images/admin_light.png" alt="Admin Panel & Notification Settings" width="100%" />
+</p>
 
 ---
 
