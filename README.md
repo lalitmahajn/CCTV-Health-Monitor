@@ -53,6 +53,7 @@ An enterprise-grade, real-time CCTV & NVR/DVR health surveillance solution desig
 - [Security & Data Privacy](#-security--data-privacy)
 - [Troubleshooting & FAQs](#-troubleshooting--faqs)
 - [Acknowledgements](#-acknowledgements--open-source-credits)
+- [Show Your Support](#-show-your-support)
 - [License](#-license)
 
 ---
@@ -399,6 +400,18 @@ This project is made possible thanks to the following open-source libraries and 
 - **[Uvicorn](https://www.uvicorn.org/)** — Lightning-fast ASGI web server implementation.
 - **[Pystray](https://github.com/moses-palmer/pystray)** & **[Pillow](https://python-pillow.org/)** — Windows system tray integration & image manipulation library.
 - **[Inno Setup](https://jrsoftware.org/isinfo.php)** — Legendary Windows installer compiler by Jordan Russell.
+
+---
+
+## ⭐ Show Your Support
+
+If **CCTV Health Monitor** helps keep your surveillance feeds online, monitor facility health, or saves your security team time, please consider giving this project a **Star** on GitHub! It helps more developers and surveillance teams discover the tool.
+
+<p align="center">
+  <a href="https://github.com/lalitmahajn/CCTV-Health-Monitor">
+    <img src="https://api.star-history.com/svg?repos=lalitmahajn/CCTV-Health-Monitor&type=Date" alt="Star History Chart" width="80%" />
+  </a>
+</p>
 
 ---
 
