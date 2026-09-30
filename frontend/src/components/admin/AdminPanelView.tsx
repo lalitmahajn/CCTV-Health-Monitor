@@ -26,7 +26,8 @@ import {
   Save,
   BellRing,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Camera
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../ui/card';
@@ -107,6 +108,8 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
   // --- Fleet Maintenance & Simulator State ---
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
+  const [isRefreshingSnapshots, setIsRefreshingSnapshots] = useState(false);
+  const [snapshotRefreshStatus, setSnapshotRefreshStatus] = useState<string | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [importResult, setImportResult] = useState<{ count?: number; errors?: string[] } | null>(null);
@@ -336,6 +339,21 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
       setScanStatus(`Failed: ${err.message}`);
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleTriggerSnapshotRefresh = async () => {
+    try {
+      setIsRefreshingSnapshots(true);
+      setSnapshotRefreshStatus(null);
+      const res = await api.triggerBatchSnapshotRefresh();
+      setSnapshotRefreshStatus(res.message || 'Batch snapshot refresh started in background.');
+      setTimeout(() => setSnapshotRefreshStatus(null), 5000);
+    } catch (err: any) {
+      setSnapshotRefreshStatus(`Failed: ${err.message}`);
+      setTimeout(() => setSnapshotRefreshStatus(null), 5000);
+    } finally {
+      setIsRefreshingSnapshots(false);
     }
   };
 
@@ -684,7 +702,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                       min="60"
                       max="3600"
                     />
-                    <p className="text-[11px] text-muted-foreground">Cadence for periodic JPEG thumbnail grabs.</p>
+                    <p className="text-[11px] text-muted-foreground">Automated background grab is manual / on-demand to conserve CPU & bandwidth. Use 'Update All Snapshots' in Fleet Operations.</p>
                   </div>
                 </div>
               </CardContent>
@@ -1529,7 +1547,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
           </div>
 
           {/* Fleet Diagnostic & Maintenance Actions */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Health Rescan */}
             <Card>
               <CardHeader>
@@ -1548,6 +1566,33 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                 </Button>
                 {scanStatus && (
                   <p className="text-xs text-primary font-mono">{scanStatus}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Batch Snapshot Refresh */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-blue-500" />
+                  Batch Snapshot Refresh
+                </CardTitle>
+                <CardDescription>
+                  Sequentially grabs fresh JPEG keyframes from all active cameras.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button 
+                  onClick={handleTriggerSnapshotRefresh} 
+                  disabled={isRefreshingSnapshots} 
+                  size="sm" 
+                  className="gap-2 w-full"
+                >
+                  <Camera className={`w-3.5 h-3.5 ${isRefreshingSnapshots ? 'animate-spin' : ''}`} />
+                  Update All Snapshots
+                </Button>
+                {snapshotRefreshStatus && (
+                  <p className="text-xs text-blue-500 font-mono">{snapshotRefreshStatus}</p>
                 )}
               </CardContent>
             </Card>

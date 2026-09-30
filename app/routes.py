@@ -459,6 +459,65 @@ def setup_routes(app):
         background_tasks.add_task(_run_full_scan)
         return {"message": "Full fleet scan started in background"}
 
+    @router.post("/cameras/snapshots/refresh-all")
+    async def refresh_all_snapshots(background_tasks: BackgroundTasks, request: Request):
+        """
+        Triggers a gentle batch capture of fresh JPEG snapshots for all active cameras.
+        Uses per-host concurrency throttling and sequential pacing to avoid NVR overload.
+        """
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        cameras = await cam_repo.get_all(enabled_only=True)
+        active_cams = [c for c in cameras if not c.get("is_no_cam")]
+        count = len(active_cams)
+
+        await audit_repo.create_entry(
+            "FLEET_SNAPSHOTS_TRIGGERED",
+            f"Batch snapshot refresh started for {count} active cameras",
+            client_ip
+        )
+
+        async def _run_batch_snapshot_refresh():
+            from app.scanner import grab_rtsp_snapshot
+            import os
+            snapshot_dir = os.path.join("static", "snapshots")
+            os.makedirs(snapshot_dir, exist_ok=True)
+
+            for cam in active_cams:
+                cam_id = cam["id"]
+                rtsp_url = cam.get("rtsp_url")
+                if not rtsp_url:
+                    continue
+                host = cam.get("ip_address", "127.0.0.1")
+                filename = f"cam_{cam_id}.jpg"
+                filepath = os.path.join(snapshot_dir, filename)
+
+                try:
+                    async with engine.throttler.acquire(host):
+                        success, err, intensity = await grab_rtsp_snapshot(
+                            rtsp_url=rtsp_url,
+                            output_path=filepath,
+                            timeout_sec=4,
+                            max_width=720
+                        )
+                    if success:
+                        await cam_repo.update_status(
+                            camera_id=cam_id,
+                            status=cam.get("status") or "ONLINE",
+                            consecutive_failures=cam.get("consecutive_failures") or 0,
+                            latency_ms=cam.get("latency_ms") or 0.0,
+                            last_error=None,
+                            thumbnail_path=f"/static/snapshots/{filename}"
+                        )
+                except Exception:
+                    pass
+                await asyncio.sleep(0.3)
+
+        background_tasks.add_task(_run_batch_snapshot_refresh)
+        return {
+            "message": f"Batch snapshot refresh started in background for {count} active cameras",
+            "total_cameras": count
+        }
+
     @router.get("/fleet/uptime-history")
     async def get_fleet_uptime_history(period: str = "24h"):
         """

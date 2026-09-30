@@ -161,6 +161,13 @@ export async function triggerFullFleetScan(): Promise<{ message: string }> {
   return handleResponse(res);
 }
 
+export async function triggerBatchSnapshotRefresh(): Promise<{ message: string; total_cameras: number }> {
+  const res = await authFetch(`${API_BASE}/cameras/snapshots/refresh-all`, {
+    method: 'POST',
+  });
+  return handleResponse(res);
+}
+
 export async function createCamera(payload: Partial<Camera>): Promise<{ id: number; message: string }> {
   const res = await authFetch(`${API_BASE}/cameras`, {
     method: 'POST',
