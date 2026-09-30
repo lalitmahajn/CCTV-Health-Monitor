@@ -189,12 +189,18 @@ def setup_routes(app):
         return await nvr_repo.get_all()
 
     @router.post("/nvrs/{nvr_name}/rename")
-    async def rename_nvr(nvr_name: str, payload: NvrRename):
+    async def rename_nvr(nvr_name: str, payload: NvrRename, request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         new_name = payload.new_name.strip()
         if not new_name:
             raise HTTPException(status_code=400, detail="New recorder name cannot be empty")
         try:
             updated_cams = await nvr_repo.rename(nvr_name, new_name)
+            await audit_repo.create_entry(
+                "NVR_BAY_RENAMED",
+                f"Recorder '{nvr_name}' renamed to '{new_name}' ({updated_cams} cameras updated)",
+                client_ip
+            )
             return {
                 "message": f"Recorder renamed to '{new_name}' across {updated_cams} cameras.",
                 "old_name": nvr_name,
@@ -298,7 +304,8 @@ def setup_routes(app):
         return cams
 
     @router.post("/cameras", status_code=201)
-    async def create_camera(payload: CameraCreate):
+    async def create_camera(payload: CameraCreate, request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         cam_id = await cam_repo.create(
             name=payload.name,
             dvr_nvr_name=payload.dvr_nvr_name or "",
@@ -309,6 +316,11 @@ def setup_routes(app):
             rtsp_url=payload.rtsp_url,
             is_enabled=payload.is_enabled if payload.is_enabled is not None else True,
             is_no_cam=payload.is_no_cam or False
+        )
+        await audit_repo.create_entry(
+            "CAMERA_CREATED",
+            f"Created camera #{cam_id} '{payload.name}' ({payload.ip_address})",
+            client_ip
         )
         return {"id": cam_id, "message": "Camera created successfully"}
 
@@ -322,22 +334,37 @@ def setup_routes(app):
 
 
     @router.put("/cameras/{camera_id}")
-    async def update_camera(camera_id: int, payload: CameraUpdate):
+    async def update_camera(camera_id: int, payload: CameraUpdate, request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         fields = {k: v for k, v in payload.dict().items() if v is not None}
         ok = await cam_repo.update(camera_id, **fields)
         if not ok:
             raise HTTPException(status_code=400, detail="Update failed or no valid fields provided")
+        await audit_repo.create_entry(
+            "CAMERA_UPDATED",
+            f"Updated camera #{camera_id} (fields: {', '.join(fields.keys())})",
+            client_ip
+        )
         return {"message": "Camera updated"}
 
     @router.delete("/cameras/{camera_id}")
-    async def delete_camera(camera_id: int):
+    async def delete_camera(camera_id: int, request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        cam = await cam_repo.get_by_id(camera_id)
+        cam_name = cam["name"] if cam else f"#{camera_id}"
         ok = await cam_repo.delete(camera_id)
         if not ok:
             raise HTTPException(status_code=404, detail="Camera not found")
+        await audit_repo.create_entry(
+            "CAMERA_DELETED",
+            f"Deleted camera #{camera_id} ('{cam_name}')",
+            client_ip
+        )
         return {"message": "Camera deleted"}
 
     @router.post("/cameras/{camera_id}/toggle-no-cam")
-    async def toggle_camera_no_cam(camera_id: int):
+    async def toggle_camera_no_cam(camera_id: int, request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         updated_cam = await cam_repo.toggle_no_cam(camera_id)
         if not updated_cam:
             raise HTTPException(status_code=404, detail="Camera not found")
@@ -348,11 +375,18 @@ def setup_routes(app):
                 await inc_repo.close_incident(inc["id"])
         if web_notifier:
             await web_notifier.broadcast_event("CAMERA_UPDATE", {"camera": updated_cam})
+        
+        mode_str = "No Cam (Spare)" if updated_cam.get("is_no_cam") else "Active Camera"
+        await audit_repo.create_entry(
+            "CAMERA_SPARE_TOGGLED",
+            f"Camera #{camera_id} '{updated_cam.get('name')}' marked as {mode_str}",
+            client_ip
+        )
         return {
             "camera_id": camera_id,
             "is_no_cam": updated_cam.get("is_no_cam"),
             "status": updated_cam.get("status"),
-            "message": f"Camera marked as {'No Cam (Spare)' if updated_cam.get('is_no_cam') else 'Active Camera'}"
+            "message": f"Camera marked as {mode_str}"
         }
 
     @router.post("/cameras/{camera_id}/check")
@@ -406,10 +440,16 @@ def setup_routes(app):
 
 
     @router.post("/cameras/scan-all")
-    async def scan_all_cameras(background_tasks: BackgroundTasks):
+    async def scan_all_cameras(background_tasks: BackgroundTasks, request: Request):
         """
         Triggers a full scan of all 266 cameras concurrently using the per-host throttler.
         """
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        await audit_repo.create_entry(
+            "MANUAL_SCAN_TRIGGERED",
+            "Manual fleet health scan initiated for all cameras",
+            client_ip
+        )
         async def _run_full_scan():
             cameras = await cam_repo.get_all(enabled_only=True)
             tasks = [engine.check_single_camera(c["id"]) for c in cameras]
@@ -531,21 +571,33 @@ def setup_routes(app):
         })
 
     @router.get("/cameras/csv/export")
-    async def export_cameras_csv():
+    async def export_cameras_csv(request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         cams = await cam_repo.get_all()
         content = export_cameras_to_csv(cams)
+        await audit_repo.create_entry(
+            "FLEET_EXPORT_DOWNLOADED",
+            f"Exported {len(cams)} cameras to CSV",
+            client_ip
+        )
         return Response(content=content, media_type="text/csv", headers={
             "Content-Disposition": "attachment; filename=cctv_cameras_export.csv"
         })
 
     @router.get("/cameras/excel/export")
-    async def export_cameras_excel():
+    async def export_cameras_excel(request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         from app.excel_export import generate_excel_export
         from datetime import datetime
         cams = await cam_repo.get_all()
         nvrs = await nvr_repo.get_all()
         excel_bytes = generate_excel_export(cams, nvrs)
         filename = f"cctv_fleet_inventory_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        await audit_repo.create_entry(
+            "FLEET_EXPORT_DOWNLOADED",
+            f"Exported {len(cams)} cameras and {len(nvrs)} bays to Excel",
+            client_ip
+        )
         return Response(
             content=excel_bytes,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -555,7 +607,8 @@ def setup_routes(app):
         )
 
     @router.post("/cameras/csv/import")
-    async def import_cameras_csv(file: UploadFile = File(...)):
+    async def import_cameras_csv(request: Request, file: UploadFile = File(...)):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         content_bytes = await file.read()
         content_str = content_bytes.decode("utf-8", errors="replace")
         valid_rows, errors = parse_and_validate_csv(content_str)
@@ -574,6 +627,11 @@ def setup_routes(app):
             )
             imported_count += 1
             
+        await audit_repo.create_entry(
+            "BULK_CSV_IMPORTED",
+            f"Imported {imported_count} cameras from '{file.filename}' (errors: {len(errors)})",
+            client_ip
+        )
         return {
             "imported_count": imported_count,
             "errors": errors
@@ -588,10 +646,16 @@ def setup_routes(app):
         return {"active": active, "history": history}
 
     @router.post("/incidents/{incident_id}/ack")
-    async def acknowledge_incident(incident_id: int):
+    async def acknowledge_incident(incident_id: int, request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         ok = await inc_repo.acknowledge(incident_id)
         if not ok:
             raise HTTPException(status_code=404, detail="Incident not found")
+        await audit_repo.create_entry(
+            "INCIDENT_ACKNOWLEDGED",
+            f"Incident #{incident_id} acknowledged by operator",
+            client_ip
+        )
         return {"message": "Incident acknowledged"}
 
     # --- Settings ---
@@ -607,13 +671,21 @@ def setup_routes(app):
 
 
     @router.post("/settings")
-    async def update_settings(payload: Dict[str, str]):
+    async def update_settings(payload: Dict[str, str], request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         await settings_repo.update_many(payload)
+        keys_summary = ", ".join(sorted(payload.keys()))
+        await audit_repo.create_entry(
+            "SETTINGS_UPDATED",
+            f"Updated {len(payload)} setting(s): {keys_summary}",
+            client_ip
+        )
         return {"message": "Settings updated"}
 
     @router.post("/settings/test-email")
-    async def test_email():
+    async def test_email(request: Request):
         """Send a test email using the current SMTP settings."""
+        client_ip = request.client.host if request.client else "127.0.0.1"
         import smtplib
         from email.mime.text import MIMEText
 
@@ -658,17 +730,26 @@ def setup_routes(app):
 
         try:
             await asyncio.to_thread(_sync_send)
+            await audit_repo.create_entry(
+                "TEST_EMAIL_SENT",
+                f"Test alert email successfully dispatched to {', '.join(to_list)}",
+                client_ip
+            )
             return {"message": f"Test email sent successfully to {', '.join(to_list)}"}
         except smtplib.SMTPAuthenticationError as e:
+            await audit_repo.create_entry("TEST_EMAIL_FAILED", f"SMTP authentication failed: {e}", client_ip)
             raise HTTPException(status_code=401, detail=f"SMTP authentication failed: {e}")
         except smtplib.SMTPConnectError as e:
+            await audit_repo.create_entry("TEST_EMAIL_FAILED", f"Could not connect to SMTP server: {e}", client_ip)
             raise HTTPException(status_code=502, detail=f"Could not connect to SMTP server: {e}")
         except Exception as e:
+            await audit_repo.create_entry("TEST_EMAIL_FAILED", f"SMTP error: {e}", client_ip)
             raise HTTPException(status_code=500, detail=f"SMTP error: {e}")
 
     @router.post("/settings/test-report")
-    async def test_report(payload: TestReportRequest):
+    async def test_report(payload: TestReportRequest, request: Request):
         """Dispatch a sample operational or executive report email."""
+        client_ip = request.client.host if request.client else "127.0.0.1"
         import smtplib
         from app.alerts import EmailAlertNotifier
         notifier = EmailAlertNotifier(db_path=app.state.db_path)
@@ -688,28 +769,44 @@ def setup_routes(app):
                 raise HTTPException(status_code=400, detail=f"Unknown report type: {rtype}")
 
             formatted_name = rtype.replace('_', ' ').title()
+            await audit_repo.create_entry(
+                "TEST_REPORT_SENT",
+                f"Sample report '{formatted_name}' dispatched successfully",
+                client_ip
+            )
             return {"message": f"Sample {formatted_name} dispatched successfully!"}
         except smtplib.SMTPAuthenticationError as e:
+            await audit_repo.create_entry("TEST_REPORT_FAILED", f"Sample report '{rtype}' failed: {e}", client_ip)
             raise HTTPException(status_code=401, detail=f"SMTP authentication failed: {e}")
         except smtplib.SMTPConnectError as e:
+            await audit_repo.create_entry("TEST_REPORT_FAILED", f"Sample report '{rtype}' connection failed: {e}", client_ip)
             raise HTTPException(status_code=502, detail=f"Could not connect to SMTP server: {e}")
         except ValueError as e:
+            await audit_repo.create_entry("TEST_REPORT_FAILED", f"Sample report '{rtype}' config error: {e}", client_ip)
             raise HTTPException(status_code=400, detail=str(e))
         except HTTPException:
             raise
         except Exception as e:
+            await audit_repo.create_entry("TEST_REPORT_FAILED", f"Sample report '{rtype}' error: {e}", client_ip)
             raise HTTPException(status_code=500, detail=f"SMTP dispatch error: {e}")
 
     # --- Simulator ---
 
 
     @router.post("/simulator/seed-270")
-    async def seed_simulation():
+    async def seed_simulation(request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         count = await seed_270_cameras(cam_repo, clear_existing=True)
+        await audit_repo.create_entry(
+            "SIMULATOR_RESEEDED",
+            f"Fleet reset and re-seeded with {count} cameras",
+            client_ip
+        )
         return {"message": f"Successfully created {count} cameras", "count": count}
 
     @router.post("/simulator/simulate-outage")
-    async def simulate_outage(payload: OutageSimulate):
+    async def simulate_outage(payload: OutageSimulate, request: Request):
+        client_ip = request.client.host if request.client else "127.0.0.1"
         cam = await cam_repo.get_by_id(payload.camera_id)
         if not cam:
             raise HTTPException(status_code=404, detail="Camera not found")
@@ -724,6 +821,11 @@ def setup_routes(app):
         )
         if alert_mgr:
             await alert_mgr.dispatch_outage(cam, {"id": inc_id, "error_reason": payload.error_reason})
+        await audit_repo.create_entry(
+            "OUTAGE_SIMULATED",
+            f"Simulated outage on camera #{payload.camera_id} '{cam.get('name')}' reason: '{payload.error_reason}' (incident #{inc_id})",
+            client_ip
+        )
         return {"message": f"Simulated outage on camera {payload.camera_id}", "incident_id": inc_id}
 
     app.include_router(public_router, prefix="/api")
