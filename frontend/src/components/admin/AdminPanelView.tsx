@@ -22,7 +22,8 @@ import {
   Eye,
   Sliders,
   Sparkles,
-  FlaskConical
+  FlaskConical,
+  Save
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../ui/card';
@@ -85,9 +86,11 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
     }
   };
 
-  // --- Alert Test State ---
+  // --- Alert Test & Save State ---
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [emailTestStatus, setEmailTestStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [alertSaveStatus, setAlertSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [telegramSaveStatus, setTelegramSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // --- NVR Bay Renaming State ---
   const [nvrOldName, setNvrOldName] = useState('NVR 01');
@@ -206,6 +209,38 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
       setTimeout(() => setSettingsStatus(null), 4000);
     } catch (err: any) {
       setSettingsStatus({ type: 'error', message: err.message || 'Failed to save settings' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleSaveAlertSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAlertSaveStatus(null);
+    try {
+      setIsSavingSettings(true);
+      await api.updateSettings(settings);
+      setAlertSaveStatus({ type: 'success', message: 'Alert configuration saved and applied!' });
+      if (onFleetReload) onFleetReload();
+      setTimeout(() => setAlertSaveStatus(null), 4000);
+    } catch (err: any) {
+      setAlertSaveStatus({ type: 'error', message: err.message || 'Failed to save alert configuration' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleSaveTelegramSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTelegramSaveStatus(null);
+    try {
+      setIsSavingSettings(true);
+      await api.updateSettings(settings);
+      setTelegramSaveStatus({ type: 'success', message: 'Telegram configuration saved!' });
+      if (onFleetReload) onFleetReload();
+      setTimeout(() => setTelegramSaveStatus(null), 4000);
+    } catch (err: any) {
+      setTelegramSaveStatus({ type: 'error', message: err.message || 'Failed to save Telegram settings' });
     } finally {
       setIsSavingSettings(false);
     }
@@ -815,8 +850,19 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                 Configure automated email dispatch upon camera outage and incident resolution.
               </CardDescription>
             </CardHeader>
-            <form onSubmit={handleSaveSettings}>
+            <form onSubmit={handleSaveAlertSettings}>
               <CardContent className="space-y-4">
+                {alertSaveStatus && (
+                  <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
+                    alertSaveStatus.type === 'success' 
+                      ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400' 
+                      : 'bg-destructive/10 border border-destructive/30 text-destructive'
+                  }`}>
+                    {alertSaveStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                    <span>{alertSaveStatus.message}</span>
+                  </div>
+                )}
+
                 {emailTestStatus && (
                   <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
                     emailTestStatus.type === 'success' 
@@ -887,7 +933,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between border-t pt-4">
+              <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -898,9 +944,20 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   {isTestingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   Send Test Email
                 </Button>
-                <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs">
-                  Save Alert Configuration
-                </Button>
+                <div className="flex items-center gap-3 justify-end">
+                  {alertSaveStatus && (
+                    <span className={`text-xs flex items-center gap-1 font-medium ${
+                      alertSaveStatus.type === 'success' ? 'text-emerald-500' : 'text-destructive'
+                    }`}>
+                      {alertSaveStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                      {alertSaveStatus.message}
+                    </span>
+                  )}
+                  <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs">
+                    {isSavingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Save Alert Configuration
+                  </Button>
+                </div>
               </CardFooter>
             </form>
           </Card>
@@ -916,8 +973,19 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                 Instant push alerts directly to security on-duty Telegram channels and command chat rooms.
               </CardDescription>
             </CardHeader>
-            <form onSubmit={handleSaveSettings}>
+            <form onSubmit={handleSaveTelegramSettings}>
               <CardContent className="space-y-4">
+                {telegramSaveStatus && (
+                  <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
+                    telegramSaveStatus.type === 'success' 
+                      ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400' 
+                      : 'bg-destructive/10 border border-destructive/30 text-destructive'
+                  }`}>
+                    {telegramSaveStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                    <span>{telegramSaveStatus.message}</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold">Telegram Bot Token</label>
@@ -943,8 +1011,18 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-end border-t pt-4">
+              <CardFooter className="flex items-center justify-between border-t pt-4">
+                {telegramSaveStatus && (
+                  <span className={`text-xs flex items-center gap-1 font-medium ${
+                    telegramSaveStatus.type === 'success' ? 'text-emerald-500' : 'text-destructive'
+                  }`}>
+                    {telegramSaveStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                    {telegramSaveStatus.message}
+                  </span>
+                )}
+                {!telegramSaveStatus && <span />}
                 <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs">
+                  {isSavingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   Save Telegram Configuration
                 </Button>
               </CardFooter>
