@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableHeader,
@@ -12,6 +13,13 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -32,9 +40,16 @@ import {
   Eye, 
   ChevronLeft, 
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   FileSpreadsheet,
   FileText,
-  MoreHorizontal
+  MoreHorizontal,
+  HardDrive,
+  MapPin,
+  Activity,
+  Layers,
+  List
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -46,6 +61,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { Camera } from '@/lib/types';
 import * as api from '@/lib/api';
+
+type GroupByOption = 'nvr' | 'location' | 'status' | 'none';
+
+interface CameraGroup {
+  key: string;
+  title: string;
+  subtitle?: string;
+  icon: 'nvr' | 'location' | 'status';
+  cameras: Camera[];
+  stats: {
+    total: number;
+    online: number;
+    offline: number;
+    spare: number;
+  };
+}
 
 interface CameraInventoryViewProps {
   cameras: Camera[];
@@ -61,6 +92,8 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 25;
+  const [groupBy, setGroupBy] = useState<GroupByOption>('nvr');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   // Add / Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -97,6 +130,121 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
 
   const totalPages = Math.ceil(filteredCameras.length / pageSize) || 1;
   const paginatedCameras = filteredCameras.slice((page - 1) * pageSize, page * pageSize);
+
+  // Camera groups computed from filteredCameras
+  const cameraGroups = useMemo<CameraGroup[]>(() => {
+    if (groupBy === 'none') return [];
+
+    const map = new Map<string, Camera[]>();
+
+    filteredCameras.forEach((cam) => {
+      let key = '';
+      if (groupBy === 'nvr') {
+        key = (cam.dvr_nvr_name && cam.dvr_nvr_name.trim()) || 'Unassigned Bay';
+      } else if (groupBy === 'location') {
+        key = (cam.location && cam.location.trim()) || 'Unassigned Location';
+      } else if (groupBy === 'status') {
+        if (cam.is_no_cam) {
+          key = 'SPARE';
+        } else if (cam.status === 'ONLINE') {
+          key = 'ONLINE';
+        } else {
+          key = 'OFFLINE';
+        }
+      }
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(cam);
+    });
+
+    const groups: CameraGroup[] = [];
+
+    map.forEach((cams, key) => {
+      let title = key;
+      let subtitle: string | undefined;
+
+      if (groupBy === 'status') {
+        if (key === 'OFFLINE') title = 'Offline / Critical Outages';
+        else if (key === 'SPARE') title = 'Spare / Unassigned Ports';
+        else if (key === 'ONLINE') title = 'Online / Operational';
+      } else if (groupBy === 'nvr') {
+        const ips = Array.from(new Set(cams.map((c) => c.ip_address).filter(Boolean)));
+        if (ips.length === 1) {
+          subtitle = `${ips[0]}:${cams[0].port || 554}`;
+        } else if (ips.length > 1) {
+          subtitle = `${ips.length} Endpoints`;
+        }
+      }
+
+      const total = cams.length;
+      const online = cams.filter((c) => !c.is_no_cam && c.status === 'ONLINE').length;
+      const spare = cams.filter((c) => Boolean(c.is_no_cam)).length;
+      const offline = total - online - spare;
+
+      const sortedCams = [...cams].sort((a, b) => {
+        const chA = parseInt(String(a.channel_no), 10);
+        const chB = parseInt(String(b.channel_no), 10);
+        if (!isNaN(chA) && !isNaN(chB)) return chA - chB;
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
+
+      groups.push({
+        key,
+        title,
+        subtitle,
+        icon: groupBy === 'nvr' ? 'nvr' : groupBy === 'location' ? 'location' : 'status',
+        cameras: sortedCams,
+        stats: { total, online, offline, spare },
+      });
+    });
+
+    if (groupBy === 'nvr' || groupBy === 'location') {
+      groups.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
+    } else if (groupBy === 'status') {
+      const order: Record<string, number> = { OFFLINE: 0, SPARE: 1, ONLINE: 2 };
+      groups.sort((a, b) => (order[a.key] ?? 99) - (order[b.key] ?? 99));
+    }
+
+    return groups;
+  }, [filteredCameras, groupBy]);
+
+  const isGroupExpanded = (key: string) => {
+    if (search.trim().length > 0) {
+      return expandedGroups[key] !== false;
+    }
+    return Boolean(expandedGroups[key]);
+  };
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const current = isGroupExpanded(key);
+      return {
+        ...prev,
+        [key]: !current,
+      };
+    });
+  };
+
+  const handleExpandAll = () => {
+    const next: Record<string, boolean> = {};
+    cameraGroups.forEach((g) => {
+      next[g.key] = true;
+    });
+    setExpandedGroups(next);
+  };
+
+  const handleCollapseAll = () => {
+    if (search.trim().length > 0) {
+      const next: Record<string, boolean> = {};
+      cameraGroups.forEach((g) => {
+        next[g.key] = false;
+      });
+      setExpandedGroups(next);
+    } else {
+      setExpandedGroups({});
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingCamera(null);
@@ -204,6 +352,114 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
     }
   };
 
+  const renderCameraRow = (cam: Camera, isIndented = false) => {
+    const isNoCam = Boolean(cam.is_no_cam);
+    const isOnline = !isNoCam && cam.status === 'ONLINE';
+
+    return (
+      <TableRow 
+        key={cam.id} 
+        className={cn(
+          "hover:bg-muted/30 transition-colors", 
+          isIndented && "bg-background/40 hover:bg-muted/40"
+        )}
+      >
+        <TableCell className={cn("font-mono font-bold text-foreground", isIndented && "pl-7")}>
+          {cam.channel_no ? String(cam.channel_no).padStart(2, '0') : '--'}
+        </TableCell>
+        <TableCell>
+          <div className="font-semibold text-foreground text-xs">{cam.name}</div>
+          {cam.location && (
+            <div className="text-[11px] text-muted-foreground truncate max-w-[220px]">
+              {cam.location}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="font-mono text-xs text-muted-foreground">
+          {cam.dvr_nvr_name || 'N/A'}
+        </TableCell>
+        <TableCell className="font-mono text-xs">
+          <div className="text-foreground">{cam.ip_address}:{cam.port || 554}</div>
+          <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">
+            {cam.masked_url || cam.rtsp_url}
+          </div>
+        </TableCell>
+        <TableCell>
+          {isNoCam ? (
+            <Badge variant="secondary" className="text-[10px] h-4 font-normal">
+              Spare
+            </Badge>
+          ) : isOnline ? (
+            <Badge variant="outline" className="text-[10px] h-4 gap-1 font-normal text-muted-foreground">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Online
+            </Badge>
+          ) : (
+            <Badge variant="destructive" className="text-[10px] h-4 font-normal">
+              Offline
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell className="font-mono text-xs text-muted-foreground">
+          {isOnline && cam.latency_ms ? `${Math.round(cam.latency_ms)}ms` : '--'}
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs font-medium gap-1 text-muted-foreground hover:text-foreground"
+              onClick={() => onInspectCamera(cam)}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Inspect</span>
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                  <span className="sr-only">More actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuLabel>Camera Actions</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onInspectCamera(cam)}>
+                  <Eye className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                  <span>Inspect Drawer</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleQuickPing(cam.id)}>
+                  <Zap className="w-3.5 h-3.5 mr-2 text-amber-500" />
+                  <span>Run Ping Check</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleToggleNoCam(cam.id)}>
+                  <Sliders className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                  <span>{isNoCam ? 'Mark as Active' : 'Mark as Spare'}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleOpenEdit(cam)}>
+                  <Edit3 className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                  <span>Edit Parameters</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                  onClick={() => handleDeleteCamera(cam.id, cam.name)}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-2" />
+                  <span>Delete Camera</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Official Shadcn Page Header */}
@@ -265,8 +521,8 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex items-center justify-between gap-3">
+      {/* Search & Grouping Controls */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
           <Input
@@ -280,8 +536,84 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
             className="pl-9 pr-3 h-9 text-xs"
           />
         </div>
-        <div className="text-xs text-muted-foreground font-mono">
-          Page {page} of {totalPages} ({filteredCameras.length} channels)
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Group By selector */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground whitespace-nowrap hidden lg:inline">
+              Group by:
+            </span>
+            <Select 
+              value={groupBy} 
+              onValueChange={(val) => { 
+                setGroupBy(val as GroupByOption); 
+                setPage(1); 
+              }}
+            >
+              <SelectTrigger className="h-9 w-[170px] text-xs gap-1.5 bg-background">
+                <Layers className="w-3.5 h-3.5 text-primary shrink-0" />
+                <SelectValue placeholder="Group by..." />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="nvr">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>DVR / NVR Bay</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="location">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Location / Zone</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="status">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Health Status</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="none">
+                  <div className="flex items-center gap-2">
+                    <List className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>None (Flat List)</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Expand / Collapse All buttons (when grouped) */}
+          {groupBy !== 'none' && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExpandAll}
+                className="h-9 text-xs px-2.5 gap-1"
+                title="Expand all groups"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Expand All</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCollapseAll}
+                className="h-9 text-xs px-2.5 gap-1"
+                title="Collapse all groups"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Collapse All</span>
+              </Button>
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground font-mono pl-1">
+            {groupBy !== 'none'
+              ? `${cameraGroups.length} groups · ${filteredCameras.length} channels`
+              : `Page ${page} of ${totalPages} (${filteredCameras.length} channels)`}
+          </div>
         </div>
       </div>
 
@@ -301,112 +633,78 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedCameras.length === 0 ? (
+              {filteredCameras.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-32 text-center text-muted-foreground font-mono text-xs">
                     No camera records found matching search query.
                   </TableCell>
                 </TableRow>
+              ) : groupBy === 'none' ? (
+                paginatedCameras.map((cam) => renderCameraRow(cam))
               ) : (
-                paginatedCameras.map((cam) => {
-                  const isNoCam = Boolean(cam.is_no_cam);
-                  const isOnline = !isNoCam && cam.status === 'ONLINE';
-
+                cameraGroups.map((group) => {
+                  const isExpanded = isGroupExpanded(group.key);
                   return (
-                    <TableRow key={cam.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-mono font-bold text-foreground">
-                        {cam.channel_no ? String(cam.channel_no).padStart(2, '0') : '--'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-semibold text-foreground text-xs">{cam.name}</div>
-                        {cam.location && (
-                          <div className="text-[11px] text-muted-foreground truncate max-w-[220px]">
-                            {cam.location}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {cam.dvr_nvr_name || 'N/A'}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        <div className="text-foreground">{cam.ip_address}:{cam.port || 554}</div>
-                        <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">
-                          {cam.masked_url || cam.rtsp_url}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {isNoCam ? (
-                          <Badge variant="secondary" className="text-[10px] h-4 font-normal">
-                            Spare
-                          </Badge>
-                        ) : isOnline ? (
-                          <Badge variant="outline" className="text-[10px] h-4 gap-1 font-normal text-muted-foreground">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Online
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-[10px] h-4 font-normal">
-                            Offline
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {isOnline && cam.latency_ms ? `${Math.round(cam.latency_ms)}ms` : '--'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs font-medium gap-1 text-muted-foreground hover:text-foreground"
-                            onClick={() => onInspectCamera(cam)}
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Inspect</span>
-                          </Button>
+                    <React.Fragment key={group.key}>
+                      <TableRow
+                        onClick={() => toggleGroup(group.key)}
+                        className="bg-muted/40 hover:bg-muted/70 cursor-pointer border-t border-b border-border/80 transition-colors select-none"
+                      >
+                        <TableCell colSpan={7} className="py-2.5 px-4">
+                          <div className="flex items-center justify-between gap-3">
+                            {/* Left: Chevron + Icon + Title + Subtitle */}
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground">
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 transition-transform duration-200" />
+                                )}
+                              </div>
+                              {group.icon === 'nvr' && <HardDrive className="w-4 h-4 text-primary shrink-0" />}
+                              {group.icon === 'location' && <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />}
+                              {group.icon === 'status' && <Activity className="w-4 h-4 text-amber-500 shrink-0" />}
+                              <span className="font-bold text-xs sm:text-sm text-foreground truncate">
+                                {group.title}
+                              </span>
+                              {group.subtitle && (
+                                <span className="font-mono text-[11px] text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded border border-border/50 shrink-0">
+                                  {group.subtitle}
+                                </span>
+                              )}
+                            </div>
 
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                                <span className="sr-only">More actions</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuLabel>Camera Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => onInspectCamera(cam)}>
-                                <Eye className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-                                <span>Inspect Drawer</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleQuickPing(cam.id)}>
-                                <Zap className="w-3.5 h-3.5 mr-2 text-amber-500" />
-                                <span>Run Ping Check</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleToggleNoCam(cam.id)}>
-                                <Sliders className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-                                <span>{isNoCam ? 'Mark as Active' : 'Mark as Spare'}</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleOpenEdit(cam)}>
-                                <Edit3 className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-                                <span>Edit Parameters</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                onClick={() => handleDeleteCamera(cam.id, cam.name)}
-                              >
-                                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                <span>Delete Camera</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                            {/* Right: Badges + Fold hint */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge variant="outline" className="font-mono text-[10px] h-5 bg-background">
+                                {group.stats.total} {group.stats.total === 1 ? 'Camera' : 'Cameras'}
+                              </Badge>
+                              {group.stats.online > 0 && (
+                                <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30 font-mono text-[10px] h-5 gap-1 font-normal">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  {group.stats.online} Online
+                                </Badge>
+                              )}
+                              {group.stats.offline > 0 && (
+                                <Badge variant="destructive" className="font-mono text-[10px] h-5 gap-1 font-normal">
+                                  {group.stats.offline} Offline
+                                </Badge>
+                              )}
+                              {group.stats.spare > 0 && (
+                                <Badge variant="secondary" className="font-mono text-[10px] h-5 font-normal">
+                                  {group.stats.spare} Spare
+                                </Badge>
+                              )}
+                              <span className="text-[11px] text-muted-foreground/80 hidden md:inline ml-1 font-sans">
+                                {isExpanded ? 'Click to fold' : 'Click to unfold'}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+
+                      {isExpanded && group.cameras.map((cam) => renderCameraRow(cam, true))}
+                    </React.Fragment>
                   );
                 })
               )}
@@ -414,8 +712,8 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
           </Table>
         </CardContent>
 
-        {/* Pagination controls */}
-        {totalPages > 1 && (
+        {/* Pagination controls for Flat list */}
+        {groupBy === 'none' && totalPages > 1 && (
           <div className="flex items-center justify-between p-3 border-t border-border/60">
             <Button
               variant="outline"
@@ -440,6 +738,35 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
               <span>Next</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Button>
+          </div>
+        )}
+
+        {/* Group summary footer for Grouped mode */}
+        {groupBy !== 'none' && cameraGroups.length > 0 && (
+          <div className="flex items-center justify-between p-3 border-t border-border/60 text-xs text-muted-foreground">
+            <span className="font-mono">
+              Showing {cameraGroups.length} groups with {filteredCameras.length} channels
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExpandAll}
+                className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span>Expand All</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCollapseAll}
+                className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span>Collapse All</span>
+              </Button>
+            </div>
           </div>
         )}
       </Card>
