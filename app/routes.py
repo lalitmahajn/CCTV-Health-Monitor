@@ -53,6 +53,9 @@ class UpdateCredentialsRequest(BaseModel):
     new_username: str
     new_password: str
 
+class TestReportRequest(BaseModel):
+    report_type: str
+
 def setup_routes(app):
     public_router = APIRouter()
     protected_router = APIRouter(dependencies=[Depends(require_admin)])
@@ -662,6 +665,32 @@ def setup_routes(app):
             raise HTTPException(status_code=502, detail=f"Could not connect to SMTP server: {e}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"SMTP error: {e}")
+
+    @router.post("/settings/test-report")
+    async def test_report(payload: TestReportRequest):
+        """Dispatch a sample operational or executive report email."""
+        from app.alerts import EmailAlertNotifier
+        notifier = EmailAlertNotifier(db_path=app.state.db_path)
+        rtype = payload.report_type
+        success = False
+        if rtype == "daily_digest":
+            success = await notifier.send_daily_digest()
+        elif rtype == "weekly_report":
+            success = await notifier.send_weekly_report()
+        elif rtype == "monthly_report":
+            success = await notifier.send_monthly_report()
+        elif rtype == "escalation":
+            success = await notifier.send_escalation_alert()
+        elif rtype == "heartbeat":
+            success = await notifier.send_heartbeat()
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown report type: {rtype}")
+
+        if success:
+            formatted_name = rtype.replace('_', ' ').title()
+            return {"message": f"Sample {formatted_name} dispatched successfully!"}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to dispatch sample {rtype}. Verify SMTP credentials.")
 
     # --- Simulator ---
 

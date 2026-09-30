@@ -23,7 +23,10 @@ import {
   Sliders,
   Sparkles,
   FlaskConical,
-  Save
+  Save,
+  BellRing,
+  Calendar,
+  AlertTriangle
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../ui/card';
@@ -91,6 +94,9 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
   const [emailTestStatus, setEmailTestStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [alertSaveStatus, setAlertSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [telegramSaveStatus, setTelegramSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [notificationSaveStatus, setNotificationSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [testingReportType, setTestingReportType] = useState<string | null>(null);
+  const [reportTestStatus, setReportTestStatus] = useState<{ [key: string]: { type: 'success' | 'error'; message: string } }>({});
 
   // --- NVR Bay Renaming State ---
   const [nvrOldName, setNvrOldName] = useState('NVR 01');
@@ -243,6 +249,47 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
       setTelegramSaveStatus({ type: 'error', message: err.message || 'Failed to save Telegram settings' });
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleSaveNotificationCategories = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNotificationSaveStatus(null);
+    try {
+      setIsSavingSettings(true);
+      await api.updateSettings(settings);
+      setNotificationSaveStatus({ type: 'success', message: 'Notification preferences saved and applied!' });
+      if (onFleetReload) onFleetReload();
+      setTimeout(() => setNotificationSaveStatus(null), 4000);
+    } catch (err: any) {
+      setNotificationSaveStatus({ type: 'error', message: err.message || 'Failed to save notification preferences' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleTestReport = async (reportType: string) => {
+    setTestingReportType(reportType);
+    try {
+      const res = await api.testReport(reportType);
+      setReportTestStatus(prev => ({
+        ...prev,
+        [reportType]: { type: 'success', message: res.message || 'Sample report sent!' }
+      }));
+      setTimeout(() => {
+        setReportTestStatus(prev => {
+          const next = { ...prev };
+          delete next[reportType];
+          return next;
+        });
+      }, 5000);
+    } catch (err: any) {
+      setReportTestStatus(prev => ({
+        ...prev,
+        [reportType]: { type: 'error', message: err.message || 'Failed to dispatch report' }
+      }));
+    } finally {
+      setTestingReportType(null);
     }
   };
 
@@ -958,6 +1005,304 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                     Save Alert Configuration
                   </Button>
                 </div>
+              </CardFooter>
+            </form>
+          </Card>
+
+          {/* Email Notification Categories & Triggers Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BellRing className="w-4 h-4 text-primary" />
+                  Email Notification Categories & Triggers
+                </CardTitle>
+                <Badge variant="outline" className="text-xs w-fit">
+                  7 Configurable Channels
+                </Badge>
+              </div>
+              <CardDescription>
+                Fine-tune which operational incidents, periodic reports, and escalation thresholds dispatch emails to configured recipients.
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSaveNotificationCategories}>
+              <CardContent className="space-y-6">
+                {notificationSaveStatus && (
+                  <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
+                    notificationSaveStatus.type === 'success' 
+                      ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400' 
+                      : 'bg-destructive/10 border border-destructive/30 text-destructive'
+                  }`}>
+                    {notificationSaveStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                    <span>{notificationSaveStatus.message}</span>
+                  </div>
+                )}
+
+                {/* 1. Real-Time Incident Notifications */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <Activity className="w-3.5 h-3.5 text-amber-500" />
+                    Real-Time Incident Notifications
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Outage Alert */}
+                    <div className="flex items-start justify-between p-3.5 rounded-lg border bg-card/50 hover:bg-card transition-colors">
+                      <div className="space-y-1 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold">Camera Outage Alerts</span>
+                          <Badge variant="destructive" className="text-[9px] px-1.5 py-0 uppercase">Real-Time</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Immediate email dispatch when a camera crosses consecutive failure thresholds and drops OFFLINE.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settings.notify_email_outage !== 'false'}
+                        onCheckedChange={(checked) => setSettings({ ...settings, notify_email_outage: checked ? 'true' : 'false' })}
+                      />
+                    </div>
+
+                    {/* Recovery Confirmation */}
+                    <div className="flex items-start justify-between p-3.5 rounded-lg border bg-card/50 hover:bg-card transition-colors">
+                      <div className="space-y-1 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold">Camera Recovery Confirmation</span>
+                          <Badge variant="default" className="text-[9px] px-1.5 py-0 uppercase bg-emerald-600">Real-Time</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Sends resolution confirmation with total downtime duration when an offline camera recovers to ONLINE.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settings.notify_email_recovery !== 'false'}
+                        onCheckedChange={(checked) => setSettings({ ...settings, notify_email_recovery: checked ? 'true' : 'false' })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Periodic Executive & Operational Reports */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                    Periodic Executive & Operational Reports
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Daily Health Digest */}
+                    <div className="flex flex-col justify-between p-3.5 rounded-lg border bg-card/50 hover:bg-card transition-colors space-y-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold">Daily Health Digest</span>
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Daily</Badge>
+                          </div>
+                          <Switch
+                            checked={settings.notify_email_daily_digest === 'true'}
+                            onCheckedChange={(checked) => setSettings({ ...settings, notify_email_daily_digest: checked ? 'true' : 'false' })}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          24-hour fleet availability %, total outages logged, and currently offline/flapping units.
+                        </p>
+                      </div>
+                      <div className="pt-2 flex items-center justify-between border-t border-border/50">
+                        <span className="text-[10px] text-muted-foreground">08:00 AM Daily</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={testingReportType === 'daily_digest'}
+                          onClick={() => handleTestReport('daily_digest')}
+                          className="h-6 text-[10px] px-2 gap-1"
+                        >
+                          {testingReportType === 'daily_digest' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Send Sample
+                        </Button>
+                      </div>
+                      {reportTestStatus['daily_digest'] && (
+                        <span className={`text-[10px] ${reportTestStatus['daily_digest'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
+                          {reportTestStatus['daily_digest'].message}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Weekly SLA Report */}
+                    <div className="flex flex-col justify-between p-3.5 rounded-lg border bg-card/50 hover:bg-card transition-colors space-y-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold">Weekly SLA & Offenders</span>
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Weekly</Badge>
+                          </div>
+                          <Switch
+                            checked={settings.notify_email_weekly_report === 'true'}
+                            onCheckedChange={(checked) => setSettings({ ...settings, notify_email_weekly_report: checked ? 'true' : 'false' })}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Top 5 chronic flapping cameras, recurring NVR bay dropouts, and SLA uptime compliance.
+                        </p>
+                      </div>
+                      <div className="pt-2 flex items-center justify-between border-t border-border/50">
+                        <span className="text-[10px] text-muted-foreground">Monday Mornings</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={testingReportType === 'weekly_report'}
+                          onClick={() => handleTestReport('weekly_report')}
+                          className="h-6 text-[10px] px-2 gap-1"
+                        >
+                          {testingReportType === 'weekly_report' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Send Sample
+                        </Button>
+                      </div>
+                      {reportTestStatus['weekly_report'] && (
+                        <span className={`text-[10px] ${reportTestStatus['weekly_report'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
+                          {reportTestStatus['weekly_report'].message}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Monthly Executive Audit */}
+                    <div className="flex flex-col justify-between p-3.5 rounded-lg border bg-card/50 hover:bg-card transition-colors space-y-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold">Monthly Fleet Audit</span>
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Monthly</Badge>
+                          </div>
+                          <Switch
+                            checked={settings.notify_email_monthly_report === 'true'}
+                            onCheckedChange={(checked) => setSettings({ ...settings, notify_email_monthly_report: checked ? 'true' : 'false' })}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          High-level executive review: 30-day uptime curves, MTTR, and hardware expansion headroom.
+                        </p>
+                      </div>
+                      <div className="pt-2 flex items-center justify-between border-t border-border/50">
+                        <span className="text-[10px] text-muted-foreground">1st of Month</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={testingReportType === 'monthly_report'}
+                          onClick={() => handleTestReport('monthly_report')}
+                          className="h-6 text-[10px] px-2 gap-1"
+                        >
+                          {testingReportType === 'monthly_report' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Send Sample
+                        </Button>
+                      </div>
+                      {reportTestStatus['monthly_report'] && (
+                        <span className={`text-[10px] ${reportTestStatus['monthly_report'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
+                          {reportTestStatus['monthly_report'].message}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Escalations & Health Checks */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                    Escalations & Engine Health Checks
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Incident Escalation */}
+                    <div className="flex flex-col justify-between p-3.5 rounded-lg border bg-card/50 hover:bg-card transition-colors space-y-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold">Incident Escalation Alert</span>
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-rose-500/40 text-rose-500">Critical</Badge>
+                          </div>
+                          <Switch
+                            checked={settings.notify_email_escalation === 'true'}
+                            onCheckedChange={(checked) => setSettings({ ...settings, notify_email_escalation: checked ? 'true' : 'false' })}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Urgent escalation reminder sent when a camera outage remains unacknowledged or offline beyond 2 hours.
+                        </p>
+                      </div>
+                      <div className="pt-2 flex items-center justify-between border-t border-border/50">
+                        <span className="text-[10px] text-muted-foreground">Trigger: 2hr Threshold</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={testingReportType === 'escalation'}
+                          onClick={() => handleTestReport('escalation')}
+                          className="h-6 text-[10px] px-2 gap-1"
+                        >
+                          {testingReportType === 'escalation' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Send Sample
+                        </Button>
+                      </div>
+                      {reportTestStatus['escalation'] && (
+                        <span className={`text-[10px] ${reportTestStatus['escalation'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
+                          {reportTestStatus['escalation'].message}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Engine Heartbeat */}
+                    <div className="flex flex-col justify-between p-3.5 rounded-lg border bg-card/50 hover:bg-card transition-colors space-y-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold">System Engine Heartbeat</span>
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary/40 text-primary">Health Check</Badge>
+                          </div>
+                          <Switch
+                            checked={settings.notify_email_heartbeat === 'true'}
+                            onCheckedChange={(checked) => setSettings({ ...settings, notify_email_heartbeat: checked ? 'true' : 'false' })}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Periodic automated heartbeat ping verifying that the monitoring background worker, database, and dispatchers are active.
+                        </p>
+                      </div>
+                      <div className="pt-2 flex items-center justify-between border-t border-border/50">
+                        <span className="text-[10px] text-muted-foreground">Periodic System Ping</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={testingReportType === 'heartbeat'}
+                          onClick={() => handleTestReport('heartbeat')}
+                          className="h-6 text-[10px] px-2 gap-1"
+                        >
+                          {testingReportType === 'heartbeat' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Send Sample
+                        </Button>
+                      </div>
+                      {reportTestStatus['heartbeat'] && (
+                        <span className={`text-[10px] ${reportTestStatus['heartbeat'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
+                          {reportTestStatus['heartbeat'].message}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex items-center justify-between border-t pt-4">
+                {notificationSaveStatus && (
+                  <span className={`text-xs flex items-center gap-1 font-medium ${
+                    notificationSaveStatus.type === 'success' ? 'text-emerald-500' : 'text-destructive'
+                  }`}>
+                    {notificationSaveStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                    {notificationSaveStatus.message}
+                  </span>
+                )}
+                {!notificationSaveStatus && <span />}
+                <Button type="submit" disabled={isSavingSettings} className="gap-2 text-xs">
+                  {isSavingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Save Notification Preferences
+                </Button>
               </CardFooter>
             </form>
           </Card>

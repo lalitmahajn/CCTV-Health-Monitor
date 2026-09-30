@@ -219,6 +219,15 @@ export async function testSmtpSettings(): Promise<{ message: string }> {
   return handleResponse(res);
 }
 
+export async function testReport(reportType: string): Promise<{ message: string }> {
+  const res = await authFetch(`${API_BASE}/settings/test-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ report_type: reportType }),
+  });
+  return handleResponse(res);
+}
+
 export async function simulateOutage(cameraId: number, errorReason = 'Simulated Hardware Failure'): Promise<{
   message: string;
   incident_id: number;
