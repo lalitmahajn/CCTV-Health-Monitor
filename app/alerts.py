@@ -120,9 +120,9 @@ class EmailAlertNotifier(BaseAlertNotifier):
 
         def _sync_send():
             if port == 465:
-                server = smtplib.SMTP_SSL(host, port, timeout=10)
+                server = smtplib.SMTP_SSL(host, port, timeout=25)
             else:
-                server = smtplib.SMTP(host, port, timeout=10)
+                server = smtplib.SMTP(host, port, timeout=25)
                 if use_tls:
                     server.starttls()
             if password:

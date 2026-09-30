@@ -1,4 +1,5 @@
 import json
+import asyncio
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException, UploadFile, File, Response, Request, BackgroundTasks, Depends
 from pydantic import BaseModel
@@ -640,17 +641,20 @@ def setup_routes(app):
         msg["From"] = user
         msg["To"] = ", ".join(to_list)
 
-        try:
+        def _sync_send():
             if port == 465:
-                server = smtplib.SMTP_SSL(host, port, timeout=10)
+                server = smtplib.SMTP_SSL(host, port, timeout=25)
             else:
-                server = smtplib.SMTP(host, port, timeout=10)
+                server = smtplib.SMTP(host, port, timeout=25)
                 if use_tls:
                     server.starttls()
             if password:
                 server.login(user, password)
             server.sendmail(user, to_list, msg.as_string())
             server.quit()
+
+        try:
+            await asyncio.to_thread(_sync_send)
             return {"message": f"Test email sent successfully to {', '.join(to_list)}"}
         except smtplib.SMTPAuthenticationError as e:
             raise HTTPException(status_code=401, detail=f"SMTP authentication failed: {e}")
