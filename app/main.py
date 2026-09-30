@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import asyncio
 from contextlib import asynccontextmanager
@@ -11,7 +12,14 @@ from app.alerts import AlertManager, WebAlertNotifier, EmailAlertNotifier, Teleg
 from app.routes import setup_routes
 
 def create_app(db_path: str = None) -> FastAPI:
-    app_db = db_path or os.environ.get("CCTV_DB_PATH", "cctv_monitor.db")
+    if not db_path:
+        if getattr(sys, "frozen", False):
+            exe_dir = os.path.dirname(sys.executable)
+            app_db = os.environ.get("CCTV_DB_PATH", os.path.join(exe_dir, "cctv_monitor.db"))
+        else:
+            app_db = os.environ.get("CCTV_DB_PATH", "cctv_monitor.db")
+    else:
+        app_db = db_path
     
     alert_manager = AlertManager()
     web_notifier = WebAlertNotifier()
@@ -84,9 +92,15 @@ def create_app(db_path: str = None) -> FastAPI:
         )
 
     # Static files and frontend SPA mounting
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    frontend_dist = os.path.join(base_dir, "frontend", "dist")
-    static_dir = os.path.join(base_dir, "static")
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(sys.executable)
+        bundle_dir = getattr(sys, "_MEIPASS", os.path.join(exe_dir, "_internal"))
+        frontend_dist = os.path.join(bundle_dir, "frontend", "dist")
+        static_dir = os.path.join(exe_dir, "static")
+    else:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        frontend_dist = os.path.join(base_dir, "frontend", "dist")
+        static_dir = os.path.join(base_dir, "static")
 
     if os.path.exists(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")

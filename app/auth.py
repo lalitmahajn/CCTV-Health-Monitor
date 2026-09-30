@@ -49,10 +49,15 @@ def decode_session_token(token: str) -> Optional[Dict[str, Any]]:
 
 async def require_admin(request: Request) -> Dict[str, Any]:
     """
-    FastAPI dependency enforcing valid admin session cookie.
+    FastAPI dependency enforcing valid admin session cookie or Bearer token.
     Raises 401 if missing, expired, or invalid.
     """
     token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token and "authorization" in request.headers:
+        auth_header = request.headers["authorization"]
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required")
     payload = decode_session_token(token)
@@ -63,10 +68,15 @@ async def require_admin(request: Request) -> Dict[str, Any]:
 
 async def get_optional_admin(request: Request) -> Optional[Dict[str, Any]]:
     """
-    FastAPI dependency returning decoded payload if cookie is valid, else None.
+    FastAPI dependency returning decoded payload if cookie or Bearer header is valid, else None.
     Does not raise HTTPException.
     """
     token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token and "authorization" in request.headers:
+        auth_header = request.headers["authorization"]
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+
     if not token:
         return None
     return decode_session_token(token)

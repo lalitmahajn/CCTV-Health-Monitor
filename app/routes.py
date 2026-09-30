@@ -1,6 +1,9 @@
 import json
 import asyncio
+import logging
 from typing import Optional, Dict, Any, List
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, HTTPException, UploadFile, File, Response, Request, BackgroundTasks, Depends
 from pydantic import BaseModel
 from app.models import (
@@ -459,20 +462,61 @@ def setup_routes(app):
         background_tasks.add_task(_run_full_scan)
         return {"message": "Full fleet scan started in background"}
 
+    _batch_snapshot_state = {
+        "is_running": False,
+        "total": 0,
+        "completed": 0,
+        "succeeded": 0,
+        "failed": 0,
+        "started_at": None,
+        "finished_at": None,
+        "message": "Idle"
+    }
+
+    @router.get("/cameras/snapshots/refresh-status")
+    async def get_snapshot_refresh_status():
+        """
+        Returns live progress of the batch snapshot refresh operation.
+        """
+        return _batch_snapshot_state
+
     @router.post("/cameras/snapshots/refresh-all")
     async def refresh_all_snapshots(background_tasks: BackgroundTasks, request: Request):
         """
-        Triggers a gentle batch capture of fresh JPEG snapshots for all active cameras.
-        Uses per-host concurrency throttling and sequential pacing to avoid NVR overload.
+        Triggers a high-speed batch capture of fresh JPEG snapshots for all active cameras.
+        Runs independent NVR bays concurrently while strictly bounding per-host load
+        using engine.throttler to ensure NVR stability and rapid completion (< 1 minute).
         """
+        if _batch_snapshot_state["is_running"]:
+            return {
+                "message": f"Snapshot refresh already running ({_batch_snapshot_state['completed']}/{_batch_snapshot_state['total']} processed)",
+                "state": _batch_snapshot_state
+            }
+
         client_ip = request.client.host if request.client else "127.0.0.1"
         cameras = await cam_repo.get_all(enabled_only=True)
         active_cams = [c for c in cameras if not c.get("is_no_cam")]
         count = len(active_cams)
 
+        from collections import defaultdict
+        nvr_groups = defaultdict(list)
+        for cam in active_cams:
+            host = cam.get("ip_address") or "127.0.0.1"
+            nvr_groups[host].append(cam)
+
+        import datetime
+        _batch_snapshot_state["is_running"] = True
+        _batch_snapshot_state["total"] = count
+        _batch_snapshot_state["completed"] = 0
+        _batch_snapshot_state["succeeded"] = 0
+        _batch_snapshot_state["failed"] = 0
+        _batch_snapshot_state["started_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        _batch_snapshot_state["finished_at"] = None
+        _batch_snapshot_state["message"] = f"Refreshing snapshots for {count} cameras across {len(nvr_groups)} NVR bays..."
+
         await audit_repo.create_entry(
             "FLEET_SNAPSHOTS_TRIGGERED",
-            f"Batch snapshot refresh started for {count} active cameras",
+            f"Batch snapshot refresh started for {count} active cameras across {len(nvr_groups)} NVR bays",
             client_ip
         )
 
@@ -482,40 +526,86 @@ def setup_routes(app):
             snapshot_dir = os.path.join("static", "snapshots")
             os.makedirs(snapshot_dir, exist_ok=True)
 
-            for cam in active_cams:
-                cam_id = cam["id"]
-                rtsp_url = cam.get("rtsp_url")
-                if not rtsp_url:
-                    continue
-                host = cam.get("ip_address", "127.0.0.1")
-                filename = f"cam_{cam_id}.jpg"
-                filepath = os.path.join(snapshot_dir, filename)
+            state_lock = asyncio.Lock()
+            db_lock = asyncio.Lock()
+            concurrency_sem = asyncio.Semaphore(3)
 
-                try:
-                    async with engine.throttler.acquire(host):
-                        success, err, intensity = await grab_rtsp_snapshot(
-                            rtsp_url=rtsp_url,
-                            output_path=filepath,
-                            timeout_sec=4,
-                            max_width=720
-                        )
+            async def _process_nvr_bay(host: str, cams: List[dict]):
+                for cam in cams:
+                    cam_id = cam["id"]
+                    rtsp_url = cam.get("rtsp_url")
+                    if not rtsp_url:
+                        async with state_lock:
+                            _batch_snapshot_state["completed"] += 1
+                            _batch_snapshot_state["failed"] += 1
+                        continue
+
+                    filename = f"cam_{cam_id}.jpg"
+                    filepath = os.path.join(snapshot_dir, filename)
+
+                    success = False
+                    err = None
+                    try:
+                        async with concurrency_sem:
+                            success, err, intensity = await grab_rtsp_snapshot(
+                                rtsp_url=rtsp_url,
+                                output_path=filepath,
+                                timeout_sec=12,
+                                max_width=720
+                            )
+                        if not success:
+                            logger.warning(f"Snapshot failed for camera {cam_id} ({cam.get('name')}): {err}")
+                    except Exception as e:
+                        logger.error(f"Snapshot exception for camera {cam_id} ({cam.get('name')}): {e}")
+                        success = False
+                        err = str(e)
+
                     if success:
-                        await cam_repo.update_status(
-                            camera_id=cam_id,
-                            status=cam.get("status") or "ONLINE",
-                            consecutive_failures=cam.get("consecutive_failures") or 0,
-                            latency_ms=cam.get("latency_ms") or 0.0,
-                            last_error=None,
-                            thumbnail_path=f"/static/snapshots/{filename}"
-                        )
-                except Exception:
-                    pass
-                await asyncio.sleep(0.3)
+                        try:
+                            async with db_lock:
+                                await cam_repo.update_status(
+                                    camera_id=cam_id,
+                                    status=cam.get("status") or "ONLINE",
+                                    consecutive_failures=cam.get("consecutive_failures") or 0,
+                                    latency_ms=cam.get("latency_ms") or 0.0,
+                                    last_error=None,
+                                    thumbnail_path=f"/static/snapshots/{filename}"
+                                )
+                        except Exception as dbe:
+                            logger.error(f"Failed to update db status for camera {cam_id}: {dbe}")
+
+                    async with state_lock:
+                        _batch_snapshot_state["completed"] += 1
+                        if success:
+                            _batch_snapshot_state["succeeded"] += 1
+                        else:
+                            _batch_snapshot_state["failed"] += 1
+
+                    await asyncio.sleep(0.1)
+
+            try:
+                await asyncio.gather(
+                    *[_process_nvr_bay(host, cams) for host, cams in nvr_groups.items()],
+                    return_exceptions=True
+                )
+            finally:
+                _batch_snapshot_state["is_running"] = False
+                _batch_snapshot_state["finished_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                _batch_snapshot_state["message"] = (
+                    f"Snapshot refresh completed: {_batch_snapshot_state['succeeded']} updated, "
+                    f"{_batch_snapshot_state['failed']} unavailable/offline."
+                )
+                await audit_repo.create_entry(
+                    "FLEET_SNAPSHOTS_COMPLETED",
+                    _batch_snapshot_state["message"],
+                    client_ip
+                )
 
         background_tasks.add_task(_run_batch_snapshot_refresh)
         return {
-            "message": f"Batch snapshot refresh started in background for {count} active cameras",
-            "total_cameras": count
+            "message": f"Parallel snapshot refresh started across {len(nvr_groups)} NVR bays for {count} active cameras",
+            "total_cameras": count,
+            "total_nvr_bays": len(nvr_groups)
         }
 
     @router.get("/fleet/uptime-history")

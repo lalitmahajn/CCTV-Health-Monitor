@@ -70,17 +70,48 @@ async def check_tcp_liveness(host: str, port: int = 554, timeout_ms: int = 3000)
         return False, 0.0, f"Error: {str(e)}"
 
 
-def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 4, max_width: int = 720) -> Tuple[bool, Optional[str], Optional[float]]:
+def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 5, max_width: int = 720) -> Tuple[bool, Optional[str], Optional[float]]:
     """
     Captures a single frame from an RTSP stream, saves a snapshot,
     and returns (success, error_msg, mean_pixel_intensity).
+    Uses substream (subtype=1) for rapid keyframe capture and light bandwidth,
+    with automatic main stream fallback.
     """
-    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = f"rtsp_transport;tcp|stimeout;{timeout_sec * 1000000}"
-    cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
-    if not cap.isOpened():
-        return False, "Failed to open RTSP stream", None
+    from app.security import decrypt_val
+    if rtsp_url and str(rtsp_url).startswith("enc:"):
+        rtsp_url = decrypt_val(rtsp_url) or rtsp_url
 
+    # For snapshots, use substream (subtype=1) for rapid keyframe capture and light bandwidth
+    target_url = rtsp_url.replace("subtype=0", "subtype=1") if "subtype=0" in rtsp_url else rtsp_url
+
+    timeout_us = int(timeout_sec * 1000000)
+    timeout_ms = int(timeout_sec * 1000)
+    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = f"rtsp_transport;tcp|timeout;{timeout_us}|stimeout;{timeout_us}"
+
+    cap_params = []
+    if hasattr(cv2, "CAP_PROP_OPEN_TIMEOUT_MSEC"):
+        cap_params.extend([cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, timeout_ms])
+    if hasattr(cv2, "CAP_PROP_READ_TIMEOUT_MSEC"):
+        cap_params.extend([cv2.CAP_PROP_READ_TIMEOUT_MSEC, timeout_ms])
+
+    cap = None
     try:
+        if cap_params:
+            cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG, cap_params)
+        else:
+            cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
+
+        if not cap.isOpened() and target_url != rtsp_url:
+            if cap is not None:
+                cap.release()
+            if cap_params:
+                cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG, cap_params)
+            else:
+                cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
+
+        if not cap.isOpened():
+            return False, "Failed to open RTSP stream", None
+
         ret, frame = cap.read()
         if not ret or frame is None or frame.size == 0:
             return False, "Failed to read video frame from stream", None
@@ -93,14 +124,10 @@ def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 4, m
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         h, w = frame.shape[:2]
 
-        # Anamorphic Aspect Ratio Normalization:
-        # Dahua / CP Plus DVRs frequently stream in "1080N" (960x1080), which has non-square pixels
-        # and is designed to be stretched horizontally by 2x to widescreen 16:9 (1920x1080).
         if w < h:
             frame = cv2.resize(frame, (w * 2, h), interpolation=cv2.INTER_CUBIC)
             h, w = frame.shape[:2]
         elif 1.15 <= (w / h) <= 1.35 and h in (480, 576):
-            # PAL / NTSC D1 (e.g. 704x576) -> normalize to standard 4:3
             display_w = int(round(h * 4.0 / 3.0))
             frame = cv2.resize(frame, (display_w, h), interpolation=cv2.INTER_CUBIC)
             h, w = frame.shape[:2]
@@ -118,22 +145,113 @@ def _sync_capture_frame(rtsp_url: str, output_path: str, timeout_sec: int = 4, m
     except Exception as e:
         return False, f"Frame decode error: {str(e)}", None
     finally:
-        cap.release()
+        if cap is not None:
+            try:
+                cap.release()
+            except Exception:
+                pass
 
 
-async def grab_rtsp_snapshot(rtsp_url: str, output_path: str, timeout_sec: int = 4, max_width: int = 720) -> Tuple[bool, Optional[str], Optional[float]]:
+async def grab_rtsp_snapshot(rtsp_url: str, output_path: str, timeout_sec: int = 12, max_width: int = 720) -> Tuple[bool, Optional[str], Optional[float]]:
     """
     Async wrapper for grabbing an RTSP frame in a worker thread.
     """
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(_sync_capture_frame, rtsp_url, output_path, timeout_sec, max_width),
-            timeout=timeout_sec + 2
+            timeout=timeout_sec + 4
         )
     except asyncio.TimeoutError:
         return False, f"RTSP frame grab timed out after {timeout_sec}s", None
     except Exception as e:
         return False, f"Worker error: {str(e)}", None
+
+
+async def probe_rtsp_url(rtsp_url: str, timeout_sec: float = 2.0) -> Dict[str, Any]:
+    """
+    Fast async RTSP DESCRIBE pre-check directly on a URL.
+    Returns status: STREAMING, EMPTY, AUTH_FAILED, TIMEOUT, or INACTIVE.
+    """
+    from urllib.parse import urlsplit
+    from app.security import decrypt_val
+    if rtsp_url and str(rtsp_url).startswith("enc:"):
+        rtsp_url = decrypt_val(rtsp_url) or rtsp_url
+
+    t0 = time.perf_counter()
+    try:
+        p = urlsplit(rtsp_url)
+        host = p.hostname or "127.0.0.1"
+        port = p.port or 554
+        user = p.username or ""
+        pwd = p.password or ""
+        path = p.path + ("?" + p.query if p.query else "")
+        clean_url = f"rtsp://{host}:{port}{path}"
+
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout_sec
+        )
+
+        req1 = (
+            f"DESCRIBE {clean_url} RTSP/1.0\r\n"
+            f"CSeq: 1\r\n"
+            f"User-Agent: CCTV-Health-Monitor\r\n"
+            f"Accept: application/sdp\r\n\r\n"
+        )
+        writer.write(req1.encode())
+        await writer.drain()
+
+        data1 = await asyncio.wait_for(reader.read(4096), timeout=timeout_sec)
+        resp1 = data1.decode("utf-8", errors="ignore")
+
+        final_resp = resp1
+        if "200 OK" not in resp1 and "WWW-Authenticate" in resp1:
+            auth_match = re.search(r'WWW-Authenticate:\s*Digest\s+(.+)', resp1, re.IGNORECASE)
+            if auth_match and user and pwd:
+                params = dict(re.findall(r'(\w+)="([^"]+)"', auth_match.group(1)))
+                realm = params.get("realm", "")
+                nonce = params.get("nonce", "")
+
+                ha1 = hashlib.md5(f"{user}:{realm}:{pwd}".encode()).hexdigest()
+                ha2 = hashlib.md5(f"DESCRIBE:{clean_url}".encode()).hexdigest()
+                response = hashlib.md5(f"{ha1}:{nonce}:{ha2}".encode()).hexdigest()
+
+                auth_hdr = f'Digest username="{user}", realm="{realm}", nonce="{nonce}", uri="{clean_url}", response="{response}"'
+                req2 = (
+                    f"DESCRIBE {clean_url} RTSP/1.0\r\n"
+                    f"CSeq: 2\r\n"
+                    f"User-Agent: CCTV-Health-Monitor\r\n"
+                    f"Authorization: {auth_hdr}\r\n"
+                    f"Accept: application/sdp\r\n\r\n"
+                )
+                writer.write(req2.encode())
+                await writer.drain()
+
+                data2 = await asyncio.wait_for(reader.read(4096), timeout=timeout_sec)
+                final_resp = data2.decode("utf-8", errors="ignore")
+
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
+
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+        if "200 OK" in final_resp:
+            return {"status": "STREAMING", "status_code": 200, "latency_ms": elapsed_ms, "message": "Stream active"}
+        elif "404 Not Found" in final_resp:
+            return {"status": "EMPTY", "status_code": 404, "latency_ms": elapsed_ms, "message": "No stream / channel empty"}
+        elif "401" in final_resp:
+            return {"status": "AUTH_FAILED", "status_code": 401, "latency_ms": elapsed_ms, "message": "Auth required or invalid"}
+        else:
+            first_line = final_resp.split("\r\n")[0] if final_resp else "No response"
+            return {"status": "INACTIVE", "status_code": 0, "latency_ms": elapsed_ms, "message": first_line}
+
+    except asyncio.TimeoutError:
+        return {"status": "TIMEOUT", "status_code": 0, "latency_ms": round((time.perf_counter() - t0) * 1000, 1), "message": f"Timed out after {timeout_sec}s"}
+    except Exception as e:
+        return {"status": "ERROR", "status_code": 0, "latency_ms": 0.0, "message": str(e)}
 
 
 async def probe_rtsp_describe(

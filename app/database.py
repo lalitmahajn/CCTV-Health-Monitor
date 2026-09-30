@@ -5,11 +5,13 @@ DEFAULT_DB_PATH = os.environ.get("CCTV_DB_PATH", "cctv_monitor.db")
 
 def get_db(db_path: str = None):
     path = db_path or DEFAULT_DB_PATH
-    return aiosqlite.connect(path)
+    return aiosqlite.connect(path, timeout=30.0)
 
 async def init_db(db_path: str = None):
     path = db_path or DEFAULT_DB_PATH
-    async with aiosqlite.connect(path) as db:
+    async with aiosqlite.connect(path, timeout=30.0) as db:
+        await db.execute("PRAGMA journal_mode = WAL")
+        await db.execute("PRAGMA busy_timeout = 30000")
         await db.execute("PRAGMA foreign_keys = ON")
         
         # Cameras table

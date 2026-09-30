@@ -6,6 +6,8 @@ __pycache__/
 
 # Databases and data
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 cctv_monitor.db
@@ -42,3 +44,10 @@ ENV/
 # Worktrees
 .worktrees/
 worktrees/
+
+# PyInstaller and Installer builds
+build/
+dist/
+installer_output/
+*.log
+config.ini

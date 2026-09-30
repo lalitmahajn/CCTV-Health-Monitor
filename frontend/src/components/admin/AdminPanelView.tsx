@@ -345,15 +345,33 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
   const handleTriggerSnapshotRefresh = async () => {
     try {
       setIsRefreshingSnapshots(true);
-      setSnapshotRefreshStatus(null);
+      setSnapshotRefreshStatus("Starting parallel snapshot refresh...");
       const res = await api.triggerBatchSnapshotRefresh();
-      setSnapshotRefreshStatus(res.message || 'Batch snapshot refresh started in background.');
-      setTimeout(() => setSnapshotRefreshStatus(null), 5000);
+      setSnapshotRefreshStatus(res.message || "Parallel snapshot refresh started...");
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await api.getSnapshotRefreshStatus();
+          if (status.is_running) {
+            setSnapshotRefreshStatus(
+              `Processing: ${status.completed}/${status.total} cameras (${status.succeeded} updated, ${status.failed} offline)...`
+            );
+          } else {
+            clearInterval(pollInterval);
+            setIsRefreshingSnapshots(false);
+            setSnapshotRefreshStatus(
+              status.message || `Completed: ${status.succeeded} updated, ${status.failed} offline.`
+            );
+            setTimeout(() => setSnapshotRefreshStatus(null), 10000);
+          }
+        } catch {
+          // ignore transient errors during polling
+        }
+      }, 1500);
     } catch (err: any) {
       setSnapshotRefreshStatus(`Failed: ${err.message}`);
-      setTimeout(() => setSnapshotRefreshStatus(null), 5000);
-    } finally {
       setIsRefreshingSnapshots(false);
+      setTimeout(() => setSnapshotRefreshStatus(null), 5000);
     }
   };
 
@@ -1578,7 +1596,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                   Batch Snapshot Refresh
                 </CardTitle>
                 <CardDescription>
-                  Sequentially grabs fresh JPEG keyframes from all active cameras.
+                  High-speed capture of fresh JPEG keyframes across all NVR bays in parallel.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">

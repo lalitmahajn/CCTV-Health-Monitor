@@ -168,6 +168,18 @@ export async function triggerBatchSnapshotRefresh(): Promise<{ message: string; 
   return handleResponse(res);
 }
 
+export async function getSnapshotRefreshStatus(): Promise<{
+  is_running: boolean;
+  total: number;
+  completed: number;
+  succeeded: number;
+  failed: number;
+  message: string;
+}> {
+  const res = await authFetch(`${API_BASE}/cameras/snapshots/refresh-status`);
+  return handleResponse(res);
+}
+
 export async function createCamera(payload: Partial<Camera>): Promise<{ id: number; message: string }> {
   const res = await authFetch(`${API_BASE}/cameras`, {
     method: 'POST',
