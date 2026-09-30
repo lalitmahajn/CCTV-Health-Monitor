@@ -1111,7 +1111,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                           type="button"
                           variant="ghost"
                           size="sm"
-                          disabled={testingReportType === 'daily_digest'}
+                          disabled={testingReportType !== null}
                           onClick={() => handleTestReport('daily_digest')}
                           className="h-6 text-[10px] px-2 gap-1"
                         >
@@ -1120,9 +1120,14 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                         </Button>
                       </div>
                       {reportTestStatus['daily_digest'] && (
-                        <span className={`text-[10px] ${reportTestStatus['daily_digest'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
-                          {reportTestStatus['daily_digest'].message}
-                        </span>
+                        <div className={`p-2 rounded text-[10px] flex items-center gap-1.5 ${
+                          reportTestStatus['daily_digest'].type === 'success' 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                            : 'bg-destructive/10 text-destructive border border-destructive/30'
+                        }`}>
+                          {reportTestStatus['daily_digest'].type === 'success' ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <AlertCircle className="w-3 h-3 shrink-0" />}
+                          <span>{reportTestStatus['daily_digest'].message}</span>
+                        </div>
                       )}
                     </div>
 
@@ -1149,7 +1154,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                           type="button"
                           variant="ghost"
                           size="sm"
-                          disabled={testingReportType === 'weekly_report'}
+                          disabled={testingReportType !== null}
                           onClick={() => handleTestReport('weekly_report')}
                           className="h-6 text-[10px] px-2 gap-1"
                         >
@@ -1158,9 +1163,14 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                         </Button>
                       </div>
                       {reportTestStatus['weekly_report'] && (
-                        <span className={`text-[10px] ${reportTestStatus['weekly_report'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
-                          {reportTestStatus['weekly_report'].message}
-                        </span>
+                        <div className={`p-2 rounded text-[10px] flex items-center gap-1.5 ${
+                          reportTestStatus['weekly_report'].type === 'success' 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                            : 'bg-destructive/10 text-destructive border border-destructive/30'
+                        }`}>
+                          {reportTestStatus['weekly_report'].type === 'success' ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <AlertCircle className="w-3 h-3 shrink-0" />}
+                          <span>{reportTestStatus['weekly_report'].message}</span>
+                        </div>
                       )}
                     </div>
 
@@ -1187,7 +1197,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                           type="button"
                           variant="ghost"
                           size="sm"
-                          disabled={testingReportType === 'monthly_report'}
+                          disabled={testingReportType !== null}
                           onClick={() => handleTestReport('monthly_report')}
                           className="h-6 text-[10px] px-2 gap-1"
                         >
@@ -1196,9 +1206,14 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                         </Button>
                       </div>
                       {reportTestStatus['monthly_report'] && (
-                        <span className={`text-[10px] ${reportTestStatus['monthly_report'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
-                          {reportTestStatus['monthly_report'].message}
-                        </span>
+                        <div className={`p-2 rounded text-[10px] flex items-center gap-1.5 ${
+                          reportTestStatus['monthly_report'].type === 'success' 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                            : 'bg-destructive/10 text-destructive border border-destructive/30'
+                        }`}>
+                          {reportTestStatus['monthly_report'].type === 'success' ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <AlertCircle className="w-3 h-3 shrink-0" />}
+                          <span>{reportTestStatus['monthly_report'].message}</span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1234,7 +1249,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                           type="button"
                           variant="ghost"
                           size="sm"
-                          disabled={testingReportType === 'escalation'}
+                          disabled={testingReportType !== null}
                           onClick={() => handleTestReport('escalation')}
                           className="h-6 text-[10px] px-2 gap-1"
                         >
@@ -1243,9 +1258,14 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                         </Button>
                       </div>
                       {reportTestStatus['escalation'] && (
-                        <span className={`text-[10px] ${reportTestStatus['escalation'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
-                          {reportTestStatus['escalation'].message}
-                        </span>
+                        <div className={`p-2 rounded text-[10px] flex items-center gap-1.5 ${
+                          reportTestStatus['escalation'].type === 'success' 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                            : 'bg-destructive/10 text-destructive border border-destructive/30'
+                        }`}>
+                          {reportTestStatus['escalation'].type === 'success' ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <AlertCircle className="w-3 h-3 shrink-0" />}
+                          <span>{reportTestStatus['escalation'].message}</span>
+                        </div>
                       )}
                     </div>
 
@@ -1272,7 +1292,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                           type="button"
                           variant="ghost"
                           size="sm"
-                          disabled={testingReportType === 'heartbeat'}
+                          disabled={testingReportType !== null}
                           onClick={() => handleTestReport('heartbeat')}
                           className="h-6 text-[10px] px-2 gap-1"
                         >
@@ -1281,9 +1301,14 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                         </Button>
                       </div>
                       {reportTestStatus['heartbeat'] && (
-                        <span className={`text-[10px] ${reportTestStatus['heartbeat'].type === 'success' ? 'text-emerald-500' : 'text-destructive'}`}>
-                          {reportTestStatus['heartbeat'].message}
-                        </span>
+                        <div className={`p-2 rounded text-[10px] flex items-center gap-1.5 ${
+                          reportTestStatus['heartbeat'].type === 'success' 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                            : 'bg-destructive/10 text-destructive border border-destructive/30'
+                        }`}>
+                          {reportTestStatus['heartbeat'].type === 'success' ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <AlertCircle className="w-3 h-3 shrink-0" />}
+                          <span>{reportTestStatus['heartbeat'].message}</span>
+                        </div>
                       )}
                     </div>
                   </div>

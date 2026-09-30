@@ -72,7 +72,7 @@ class EmailAlertNotifier(BaseAlertNotifier):
         self.password = password
         self.to_email = to_email
 
-    async def _send_smtp(self, subject: str, body: str) -> bool:
+    async def _send_smtp(self, subject: str, body: str, is_test: bool = False) -> bool:
         host = self.smtp_host
         port = self.smtp_port
         user = self.username
@@ -87,7 +87,7 @@ class EmailAlertNotifier(BaseAlertNotifier):
                 settings_repo = SettingsRepository(self.db_path)
                 s = await settings_repo.get_all()
 
-                if s.get("enable_email_alerts", "false").lower() != "true":
+                if not is_test and s.get("enable_email_alerts", "false").lower() != "true":
                     logger.debug("[EmailAlertNotifier] Email alerts disabled in settings; skipping dispatch.")
                     return True
 
@@ -101,13 +101,29 @@ class EmailAlertNotifier(BaseAlertNotifier):
                 recipients = s.get("email_recipients", "").strip() or recipients
             except Exception as e:
                 logger.error(f"[EmailAlertNotifier] Error loading settings: {e}")
+                if is_test:
+                    raise
 
-        if not host or not user or not recipients:
+        if not host:
+            if is_test:
+                raise ValueError("SMTP Server Host is not configured")
             logger.info("[EmailAlertNotifier] SMTP settings not fully configured; skipping email dispatch.")
+            return True
+        if not user:
+            if is_test:
+                raise ValueError("SMTP Username / Sender Email is not configured")
+            logger.info("[EmailAlertNotifier] SMTP user not configured; skipping email dispatch.")
+            return True
+        if not recipients:
+            if is_test:
+                raise ValueError("No recipient email addresses configured in Alert Channels")
+            logger.info("[EmailAlertNotifier] No recipients configured; skipping email dispatch.")
             return True
 
         to_list = [r.strip() for r in recipients.split(",") if r.strip()]
         if not to_list:
+            if is_test:
+                raise ValueError("No valid recipient email addresses found")
             return True
 
         import smtplib
@@ -136,6 +152,8 @@ class EmailAlertNotifier(BaseAlertNotifier):
             return True
         except Exception as e:
             logger.error(f"[EmailAlertNotifier] Failed to dispatch email alert: {e}")
+            if is_test:
+                raise
             return False
 
     async def send_outage(self, camera: Dict[str, Any], incident: Dict[str, Any]) -> bool:
@@ -204,7 +222,7 @@ class EmailAlertNotifier(BaseAlertNotifier):
         )
         return await self._send_smtp(subject, body)
 
-    async def send_daily_digest(self, summary: Optional[Dict[str, Any]] = None) -> bool:
+    async def send_daily_digest(self, summary: Optional[Dict[str, Any]] = None, is_test: bool = False) -> bool:
         from datetime import datetime
         now_str = datetime.now().strftime("%Y-%m-%d %I:%M %p")
         subject = f"[CCTV Daily Digest] Fleet Health Summary — {now_str}"
@@ -220,9 +238,9 @@ class EmailAlertNotifier(BaseAlertNotifier):
             f"Summary Status: All systems operating normally with zero active outages.\n"
             f"— CCTV Health Monitoring Daemon"
         )
-        return await self._send_smtp(subject, body)
+        return await self._send_smtp(subject, body, is_test=is_test)
 
-    async def send_weekly_report(self) -> bool:
+    async def send_weekly_report(self, is_test: bool = False) -> bool:
         from datetime import datetime
         now_str = datetime.now().strftime("%Y-%m-%d")
         subject = f"[CCTV Weekly Report] SLA Performance & Stability Audit — Week of {now_str}"
@@ -239,9 +257,9 @@ class EmailAlertNotifier(BaseAlertNotifier):
             f"• 13 Bays reporting stable TCP sockets and RTSP frame delivery.\n"
             f"— CCTV Health Monitoring Daemon"
         )
-        return await self._send_smtp(subject, body)
+        return await self._send_smtp(subject, body, is_test=is_test)
 
-    async def send_monthly_report(self) -> bool:
+    async def send_monthly_report(self, is_test: bool = False) -> bool:
         from datetime import datetime
         month_str = datetime.now().strftime("%B %Y")
         subject = f"[CCTV Monthly Audit] Executive Infrastructure Report — {month_str}"
@@ -257,9 +275,9 @@ class EmailAlertNotifier(BaseAlertNotifier):
             f"• All camera firmware and network switches operating within nominal thermal envelopes.\n"
             f"— CCTV Health Monitoring Daemon"
         )
-        return await self._send_smtp(subject, body)
+        return await self._send_smtp(subject, body, is_test=is_test)
 
-    async def send_escalation_alert(self, camera_name: str = "Cam 014", bay: str = "NVR Bay 01", duration_hours: float = 2.5) -> bool:
+    async def send_escalation_alert(self, camera_name: str = "Cam 014", bay: str = "NVR Bay 01", duration_hours: float = 2.5, is_test: bool = False) -> bool:
         subject = f"[ESCALATION URGENT] Unresolved Camera Outage: {camera_name} > {duration_hours}h"
         body = (
             f"*** CRITICAL INCIDENT ESCALATION ***\n\n"
@@ -271,9 +289,9 @@ class EmailAlertNotifier(BaseAlertNotifier):
             f"Please verify physical PoE switch and field cabling immediately.\n\n"
             f"— CCTV Health Monitoring Incident Escalator"
         )
-        return await self._send_smtp(subject, body)
+        return await self._send_smtp(subject, body, is_test=is_test)
 
-    async def send_heartbeat(self) -> bool:
+    async def send_heartbeat(self, is_test: bool = False) -> bool:
         from datetime import datetime
         now_str = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
         subject = f"[CCTV Heartbeat] System Health Check-In — {now_str}"
@@ -287,7 +305,8 @@ class EmailAlertNotifier(BaseAlertNotifier):
             f"This automated heartbeat verifies that the background monitoring worker and email alerts are active.\n"
             f"— CCTV Health Monitoring Daemon"
         )
-        return await self._send_smtp(subject, body)
+        return await self._send_smtp(subject, body, is_test=is_test)
+
 
 
 class TelegramAlertNotifier(BaseAlertNotifier):
