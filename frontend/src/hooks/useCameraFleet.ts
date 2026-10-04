@@ -197,14 +197,14 @@ export function useCameraFleet() {
     const operatingTotal = online + warning;
     const healthPercent = totalActive > 0 ? Math.round((operatingTotal / totalActive) * 100) : 100;
 
-    // Calculate critical NVRs (where >= 2 active cameras are offline)
+    // Calculate critical NVRs (where active cameras are offline)
     const nvrOfflineMap: Record<string, number> = {};
     for (const c of cameras) {
       if (!c.is_no_cam && c.status === 'OFFLINE' && c.dvr_nvr_name) {
         nvrOfflineMap[c.dvr_nvr_name] = (nvrOfflineMap[c.dvr_nvr_name] || 0) + 1;
       }
     }
-    const criticalNvrCount = Object.values(nvrOfflineMap).filter((count) => count >= 2).length;
+    const criticalNvrCount = Object.values(nvrOfflineMap).filter((count) => count > 0).length;
 
     return {
       total: cameras.length,

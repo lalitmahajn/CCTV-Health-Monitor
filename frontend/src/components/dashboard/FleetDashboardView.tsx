@@ -171,7 +171,8 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
             const operating = online + warning;
             const healthPct = total > spare ? Math.round((operating / (total - spare)) * 100) : 100;
             const isNvrDown = info?.status === 'OFFLINE';
-            const isCritical = isNvrDown || offline >= 2;
+            const hasOutage = offline > 0;
+            const isCritical = isNvrDown || hasOutage;
 
             return (
               <Card
@@ -202,7 +203,7 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
                         <AlertTriangle className="w-3 h-3" />
                         NVR Outage
                       </Badge>
-                    ) : isCritical ? (
+                    ) : hasOutage ? (
                       <Badge variant="destructive" className="text-[11px] gap-1 font-normal">
                         <AlertTriangle className="w-3 h-3" />
                         {offline} Down

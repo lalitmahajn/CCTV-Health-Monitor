@@ -62,7 +62,7 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
   });
 
   const isNvrDown = nvrInfo?.status === 'OFFLINE';
-  const isCriticalBay = isNvrDown || offlineCount >= 2;
+  const isCriticalBay = isNvrDown || offlineCount > 0;
 
   return (
     <Card className={cn(
@@ -128,9 +128,9 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {isCriticalBay && !isNvrDown && (
+            {offlineCount > 0 && !isNvrDown && (
               <Badge variant="destructive" className="text-[10px]">
-                Critical Bay
+                {offlineCount} Down
               </Badge>
             )}
             <Button
