@@ -11,7 +11,8 @@ CSV_HEADERS = [
     "port",
     "channel_no",
     "rtsp_url",
-    "is_enabled"
+    "is_enabled",
+    "is_spare"
 ]
 
 def generate_csv_template() -> str:
@@ -29,7 +30,8 @@ def generate_csv_template() -> str:
         "554",
         "01",
         "rtsp://admin:password@192.168.1.50:554/ch1/main/av_stream",
-        "true"
+        "true",
+        "false"
     ])
     return output.getvalue()
 
@@ -67,7 +69,7 @@ def parse_and_validate_csv(csv_content: str) -> Tuple[List[Dict[str, Any]], List
 
     for row_idx, row in enumerate(reader, start=2):
         # Normalize keys in row
-        norm_row = {k.strip().lower(): v.strip() for k, v in row.items() if k}
+        norm_row = {k.strip().lower(): v.strip() for k, v in row.items() if k and v is not None}
         
         rtsp_url = norm_row.get("rtsp_url", "")
         if not rtsp_url:
@@ -97,6 +99,15 @@ def parse_and_validate_csv(csv_content: str) -> Tuple[List[Dict[str, Any]], List
         enabled_val = norm_row.get("is_enabled", "true").lower()
         is_enabled = enabled_val in ("true", "1", "yes", "t", "y")
         
+        # Spare / No Cam (support is_spare, is_no_cam, or spare aliases)
+        spare_val = (
+            norm_row.get("is_spare") or 
+            norm_row.get("is_no_cam") or 
+            norm_row.get("spare") or 
+            "false"
+        ).lower()
+        is_no_cam = spare_val in ("true", "1", "yes", "t", "y")
+
         valid_rows.append({
             "name": name,
             "dvr_nvr_name": dvr_nvr_name,
@@ -105,7 +116,8 @@ def parse_and_validate_csv(csv_content: str) -> Tuple[List[Dict[str, Any]], List
             "port": port,
             "channel_no": str(channel_no),
             "rtsp_url": rtsp_url,
-            "is_enabled": is_enabled
+            "is_enabled": is_enabled,
+            "is_no_cam": is_no_cam
         })
         
     return valid_rows, errors
@@ -120,6 +132,9 @@ def export_cameras_to_csv(cameras: List[Dict[str, Any]]) -> str:
     writer.writerow(CSV_HEADERS)
     
     for cam in cameras:
+        # Prefer decrypted rtsp_url for complete restore fidelity, falling back to masked_url
+        url = cam.get("rtsp_url") or cam.get("masked_url", "")
+        is_spare = bool(cam.get("is_no_cam"))
         writer.writerow([
             cam.get("name", ""),
             cam.get("dvr_nvr_name", ""),
@@ -127,8 +142,8 @@ def export_cameras_to_csv(cameras: List[Dict[str, Any]]) -> str:
             cam.get("ip_address", ""),
             cam.get("port", 554),
             cam.get("channel_no", ""),
-            cam.get("masked_url") or cam.get("rtsp_url", ""),
-            "true" if cam.get("is_enabled", 1) else "false"
-
+            url,
+            "true" if cam.get("is_enabled", 1) else "false",
+            "true" if is_spare else "false"
         ])
     return output.getvalue()

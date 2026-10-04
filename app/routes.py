@@ -759,7 +759,8 @@ def setup_routes(app):
         
         imported_count = 0
         for r in valid_rows:
-            await cam_repo.create(
+            is_no_cam = bool(r.get("is_no_cam", False))
+            cam_id = await cam_repo.create(
                 name=r["name"],
                 dvr_nvr_name=r["dvr_nvr_name"],
                 location=r["location"],
@@ -767,8 +768,11 @@ def setup_routes(app):
                 port=r["port"],
                 channel_no=r["channel_no"],
                 rtsp_url=r["rtsp_url"],
-                is_enabled=r["is_enabled"]
+                is_enabled=r["is_enabled"],
+                is_no_cam=is_no_cam
             )
+            if is_no_cam:
+                await cam_repo.update_status(cam_id, status="NO_CAM", consecutive_failures=0)
             imported_count += 1
             
         await audit_repo.create_entry(
