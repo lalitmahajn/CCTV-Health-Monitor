@@ -37,16 +37,16 @@ export const CriticalOutageBanner: React.FC<CriticalOutageBannerProps> = ({
   const camCount = activeIncidents.length;
 
   return (
-    <div className="flex items-center justify-between gap-3 px-3.5 py-2 rounded-lg border border-red-500/30 bg-red-950/20 text-xs text-foreground mb-4 shadow-sm">
+    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-red-300 dark:border-red-900/60 bg-red-50/95 dark:bg-red-950/40 text-xs shadow-sm mb-4">
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="p-1 rounded-md bg-red-500/15 text-red-400 shrink-0">
-          <AlertTriangle className="w-4 h-4 text-red-400" />
+        <div className="p-1.5 rounded-md bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 shrink-0">
+          <AlertTriangle className="w-4 h-4" />
         </div>
         <div className="truncate">
-          <span className="font-semibold text-red-400 mr-2">
+          <span className="font-bold text-red-800 dark:text-red-300 mr-2">
             Fleet Outage:
           </span>
-          <span className="text-muted-foreground">
+          <span className="font-medium text-red-700 dark:text-red-200">
             {camCount} camera{camCount === 1 ? '' : 's'} offline
             {nvrCount > 0 && ` across ${nvrCount} NVR${nvrCount === 1 ? '' : 's'}`}
           </span>
@@ -56,9 +56,9 @@ export const CriticalOutageBanner: React.FC<CriticalOutageBannerProps> = ({
       <div className="flex items-center gap-1.5 shrink-0">
         {onNavigateToIncidents && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="h-7 px-2.5 text-xs font-medium text-red-300 hover:text-white hover:bg-red-500/20 gap-1"
+            className="h-7 px-2.5 text-xs font-semibold text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/60 bg-white/80 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 hover:text-red-900 dark:hover:text-white gap-1 transition-colors"
             onClick={onNavigateToIncidents}
           >
             <span>View Incidents</span>
@@ -68,7 +68,7 @@ export const CriticalOutageBanner: React.FC<CriticalOutageBannerProps> = ({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-red-500/10 rounded-full"
+          className="h-7 w-7 p-0 text-red-400 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/50 rounded-full transition-colors"
           onClick={() => setIsDismissed(true)}
           title="Dismiss banner"
         >
