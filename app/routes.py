@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
-from fastapi import APIRouter, HTTPException, UploadFile, File, Response, Request, BackgroundTasks, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Response, Request, BackgroundTasks, Depends
 from pydantic import BaseModel
 from app.models import (
     CameraRepository, NvrRepository, IncidentRepository, SettingsRepository,
@@ -751,11 +751,22 @@ def setup_routes(app):
         )
 
     @router.post("/cameras/csv/import")
-    async def import_cameras_csv(request: Request, file: UploadFile = File(...)):
+    async def import_cameras_csv(
+        request: Request,
+        file: UploadFile = File(...),
+        default_username: Optional[str] = Form(None),
+        default_password: Optional[str] = Form(None),
+        override_credentials: Optional[bool] = Form(False)
+    ):
         client_ip = request.client.host if request.client else "127.0.0.1"
         content_bytes = await file.read()
         content_str = content_bytes.decode("utf-8", errors="replace")
-        valid_rows, errors = parse_and_validate_csv(content_str)
+        valid_rows, errors = parse_and_validate_csv(
+            content_str,
+            default_username=default_username,
+            default_password=default_password,
+            override_credentials=bool(override_credentials)
+        )
         
         imported_count = 0
         for r in valid_rows:

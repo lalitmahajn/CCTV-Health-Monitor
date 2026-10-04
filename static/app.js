@@ -896,6 +896,14 @@ document.getElementById("btn-upload-csv").addEventListener("click", async () => 
   }
   const formData = new FormData();
   formData.append("file", fileInput.files[0]);
+  const userIn = document.getElementById("csv-username-input");
+  const passIn = document.getElementById("csv-password-input");
+  if (userIn && userIn.value.trim()) {
+    formData.append("default_username", userIn.value.trim());
+  }
+  if (passIn && passIn.value) {
+    formData.append("default_password", passIn.value);
+  }
 
   const resDiv = document.getElementById("csv-upload-result");
   resDiv.textContent = "Uploading & importing...";

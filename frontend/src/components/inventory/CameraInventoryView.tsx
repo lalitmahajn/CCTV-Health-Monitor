@@ -49,7 +49,8 @@ import {
   MapPin,
   Activity,
   Layers,
-  List
+  List,
+  Key
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -113,6 +114,9 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
   // Import Modal state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importUsername, setImportUsername] = useState('');
+  const [importPassword, setImportPassword] = useState('');
+  const [importOverrideAll, setImportOverrideAll] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
   // Filtered cameras
@@ -334,6 +338,15 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
       setImportStatus('Uploading and parsing CSV...');
       const uploadFormData = new FormData();
       uploadFormData.append('file', importFile);
+      if (importUsername.trim()) {
+        uploadFormData.append('default_username', importUsername.trim());
+      }
+      if (importPassword) {
+        uploadFormData.append('default_password', importPassword);
+      }
+      if (importOverrideAll) {
+        uploadFormData.append('override_credentials', 'true');
+      }
       const res = await fetch('/api/cameras/csv/import', {
         method: 'POST',
         body: uploadFormData,
@@ -928,6 +941,51 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
                 onChange={(e) => setImportFile(e.target.files?.[0] || null)}
                 className="h-9 cursor-pointer text-xs"
               />
+            </div>
+
+            {/* RTSP Credentials Injection */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-primary" />
+                <span>RTSP Credentials Injection (Optional)</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                If your CSV has masked passwords (<code className="bg-muted px-1 py-0.5 rounded font-mono">*****</code>) or standard empty credentials, enter your master recorder credentials to auto-inject:
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">Default Username</label>
+                  <Input
+                    type="text"
+                    value={importUsername}
+                    onChange={(e) => setImportUsername(e.target.value)}
+                    placeholder="e.g. admin or arechs_cctv"
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">Default Password</label>
+                  <Input
+                    type="password"
+                    value={importPassword}
+                    onChange={(e) => setImportPassword(e.target.value)}
+                    placeholder="Enter password..."
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="import-override-all"
+                  checked={importOverrideAll}
+                  onChange={(e) => setImportOverrideAll(e.target.checked)}
+                  className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5"
+                />
+                <label htmlFor="import-override-all" className="text-[11px] text-muted-foreground cursor-pointer select-none">
+                  Force override existing passwords in CSV with this password
+                </label>
+              </div>
             </div>
 
             {importStatus && (

@@ -1,7 +1,7 @@
 import csv
 import io
 import re
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 
 CSV_HEADERS = [
     "name",
@@ -18,6 +18,7 @@ CSV_HEADERS = [
 def generate_csv_template() -> str:
     """
     Generates a sample CSV template with standard headers and an example row.
+    Uses masked password placeholder (*****) to show standard template pattern.
     """
     output = io.StringIO()
     writer = csv.writer(output)
@@ -29,11 +30,81 @@ def generate_csv_template() -> str:
         "192.168.1.50",
         "554",
         "01",
-        "rtsp://admin:password@192.168.1.50:554/ch1/main/av_stream",
+        "rtsp://admin:*****@192.168.1.50:554/ch1/main/av_stream",
         "true",
         "false"
     ])
     return output.getvalue()
+
+
+def mask_rtsp_password(url: Optional[str]) -> str:
+    """
+    Masks ONLY the password in an RTSP URL with '*****', keeping username intact.
+    e.g. rtsp://admin:secret@192.168.1.10:554/ch1 -> rtsp://admin:*****@192.168.1.10:554/ch1
+    e.g. rtsp://192.168.1.10:554/ch1 -> rtsp://192.168.1.10:554/ch1
+    """
+    if not url:
+        return ""
+    url_str = str(url)
+    if url_str.startswith("enc:"):
+        from app.security import decrypt_val
+        url_str = decrypt_val(url_str) or ""
+
+    m = re.match(r'^(rtsps?://)([^:@/\s]+)(?::([^@/\s]+))?@(.*)$', url_str)
+    if m:
+        proto, user, passwd, rest = m.groups()
+        return f"{proto}{user}:*****@{rest}"
+    return url_str
+
+
+def inject_rtsp_credentials(
+    rtsp_url: str,
+    default_username: Optional[str] = None,
+    default_password: Optional[str] = None,
+    override_all: bool = False
+) -> str:
+    """
+    Injects or replaces credentials in an RTSP URL.
+    - If URL contains '*****' (masked password) or has no password, and default_password is provided:
+      replaces with default_password.
+    - If default_username is provided, updates/injects the username as well.
+    - If override_all is True, replaces any existing credentials with the provided ones.
+    """
+    if not rtsp_url:
+        return rtsp_url
+
+    clean_user = default_username.strip() if default_username and default_username.strip() else None
+    clean_pass = default_password if default_password is not None and default_password != "" else None
+
+    m = re.match(r'^(rtsps?://)(?:([^:@/\s]+)(?::([^@/\s]*))?@)?(.*)$', rtsp_url)
+    if not m:
+        return rtsp_url
+
+    proto, existing_user, existing_pass, rest = m.groups()
+
+    # Determine username
+    if clean_user:
+        target_user = clean_user
+    elif existing_user and existing_user != "*****":
+        target_user = existing_user
+    else:
+        target_user = "admin"
+
+    # Determine password
+    if clean_pass is not None:
+        if override_all or not existing_pass or existing_pass == "*****":
+            target_pass = clean_pass
+        else:
+            target_pass = existing_pass
+    else:
+        target_pass = existing_pass
+
+    if target_user and target_pass is not None:
+        return f"{proto}{target_user}:{target_pass}@{rest}"
+    elif target_user:
+        return f"{proto}{target_user}@{rest}"
+    else:
+        return f"{proto}{rest}"
 
 
 def _extract_ip_from_rtsp(url: str) -> str:
@@ -47,9 +118,15 @@ def _extract_ip_from_rtsp(url: str) -> str:
     return "127.0.0.1"
 
 
-def parse_and_validate_csv(csv_content: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+def parse_and_validate_csv(
+    csv_content: str,
+    default_username: Optional[str] = None,
+    default_password: Optional[str] = None,
+    override_credentials: bool = False
+) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Parses CSV text into a list of validated camera dictionaries.
+    Supports injecting default credentials into masked (*****) or unauthenticated RTSP URLs.
     Returns: (valid_camera_dicts, error_messages)
     """
     f = io.StringIO(csv_content.strip())
@@ -71,9 +148,23 @@ def parse_and_validate_csv(csv_content: str) -> Tuple[List[Dict[str, Any]], List
         # Normalize keys in row
         norm_row = {k.strip().lower(): v.strip() for k, v in row.items() if k and v is not None}
         
-        rtsp_url = norm_row.get("rtsp_url", "")
-        if not rtsp_url:
+        raw_rtsp = norm_row.get("rtsp_url", "")
+        if not raw_rtsp:
             errors.append(f"Row {row_idx}: 'rtsp_url' is required")
+            continue
+
+        # Inject or update credentials
+        rtsp_url = inject_rtsp_credentials(
+            raw_rtsp,
+            default_username=default_username,
+            default_password=default_password,
+            override_all=override_credentials
+        )
+
+        if "*****" in rtsp_url:
+            errors.append(
+                f"Row {row_idx}: RTSP password contains '*****' (masked). Please enter a Default Password during import."
+            )
             continue
             
         name = norm_row.get("name") or f"Camera {row_idx - 1}"
@@ -126,14 +217,16 @@ def parse_and_validate_csv(csv_content: str) -> Tuple[List[Dict[str, Any]], List
 def export_cameras_to_csv(cameras: List[Dict[str, Any]]) -> str:
     """
     Serializes a list of camera records into CSV text.
+    RTSP passwords are masked with '*****' to safeguard plant cybersecurity.
     """
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(CSV_HEADERS)
     
     for cam in cameras:
-        # Prefer decrypted rtsp_url for complete restore fidelity, falling back to masked_url
-        url = cam.get("rtsp_url") or cam.get("masked_url", "")
+        # Secure export: Mask password so plaintext credentials are never saved in CSV files
+        raw_url = cam.get("rtsp_url", "")
+        url = mask_rtsp_password(raw_url) or cam.get("masked_url", "") or raw_url
         is_spare = bool(cam.get("is_no_cam"))
         writer.writerow([
             cam.get("name", ""),

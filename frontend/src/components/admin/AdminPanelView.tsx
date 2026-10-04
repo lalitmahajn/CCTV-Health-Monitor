@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
   KeyRound, 
+  Key,
   Cpu, 
   Bell, 
   Database, 
@@ -111,6 +112,9 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
   const [isRefreshingSnapshots, setIsRefreshingSnapshots] = useState(false);
   const [snapshotRefreshStatus, setSnapshotRefreshStatus] = useState<string | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvUsername, setCsvUsername] = useState('');
+  const [csvPassword, setCsvPassword] = useState('');
+  const [csvOverride, setCsvOverride] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [importResult, setImportResult] = useState<{ count?: number; errors?: string[] } | null>(null);
   const [isReSeedModalOpen, setIsReSeedModalOpen] = useState(false);
@@ -384,6 +388,15 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
       setImportResult(null);
       const formData = new FormData();
       formData.append('file', csvFile);
+      if (csvUsername.trim()) {
+        formData.append('default_username', csvUsername.trim());
+      }
+      if (csvPassword) {
+        formData.append('default_password', csvPassword);
+      }
+      if (csvOverride) {
+        formData.append('override_credentials', 'true');
+      }
 
       const res = await fetch('/api/cameras/csv/import', {
         method: 'POST',
@@ -1484,6 +1497,49 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                       accept=".csv"
                       onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
                     />
+                    <div className="p-3 bg-muted/40 rounded-lg border border-border/60 space-y-2">
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-primary" />
+                        <span>RTSP Credentials Injection (Optional)</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        If your CSV has masked passwords (<code className="bg-muted px-1 py-0.5 rounded font-mono">*****</code>) or standard empty passwords, enter master credentials:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[11px] font-medium text-muted-foreground">Default Username</label>
+                          <Input
+                            type="text"
+                            value={csvUsername}
+                            onChange={(e) => setCsvUsername(e.target.value)}
+                            placeholder="e.g. admin or arechs_cctv"
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-medium text-muted-foreground">Default Password</label>
+                          <Input
+                            type="password"
+                            value={csvPassword}
+                            onChange={(e) => setCsvPassword(e.target.value)}
+                            placeholder="Enter password..."
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="checkbox"
+                          id="admin-csv-override"
+                          checked={csvOverride}
+                          onChange={(e) => setCsvOverride(e.target.checked)}
+                          className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5"
+                        />
+                        <label htmlFor="admin-csv-override" className="text-[11px] text-muted-foreground cursor-pointer select-none">
+                          Force override existing passwords in CSV with this password
+                        </label>
+                      </div>
+                    </div>
                     <Button type="submit" disabled={!csvFile || isImportingCsv} size="sm" className="gap-2">
                       {isImportingCsv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                       Import Cameras

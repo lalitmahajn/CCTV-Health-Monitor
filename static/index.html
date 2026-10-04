@@ -274,7 +274,17 @@
         <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin-bottom: 1.5rem;">
 
         <h4 style="margin-bottom: 0.5rem;">Import Cameras from CSV</h4>
-        <input type="file" id="csv-file-input" accept=".csv" style="margin-bottom: 1rem;">
+        <input type="file" id="csv-file-input" accept=".csv" style="margin-bottom: 0.75rem;">
+        <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; max-width: 480px;">
+          <div style="flex: 1;">
+            <label style="font-size: 0.8rem; display: block; margin-bottom: 0.25rem; color: var(--text-muted);">Default Username (Optional)</label>
+            <input type="text" id="csv-username-input" placeholder="e.g. admin" style="width: 100%; padding: 0.4rem; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-card); color: var(--text-main); font-size: 0.85rem;">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 0.8rem; display: block; margin-bottom: 0.25rem; color: var(--text-muted);">Default Password (Optional)</label>
+            <input type="password" id="csv-password-input" placeholder="Enter password..." style="width: 100%; padding: 0.4rem; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg-card); color: var(--text-main); font-size: 0.85rem;">
+          </div>
+        </div>
         <div>
           <button class="btn btn-primary" id="btn-upload-csv">Upload & Import CSV</button>
         </div>
