@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
+import { cn, getCameraDisplayName } from '@/lib/utils';
 import {
   Table,
   TableHeader,
@@ -102,6 +102,7 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    alias: '',
     dvr_nvr_name: '',
     location: '',
     ip_address: '',
@@ -126,6 +127,7 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
     const q = search.toLowerCase();
     return (
       c.name.toLowerCase().includes(q) ||
+      (c.alias && c.alias.toLowerCase().includes(q)) ||
       c.ip_address.toLowerCase().includes(q) ||
       (c.location || '').toLowerCase().includes(q) ||
       (c.dvr_nvr_name || '').toLowerCase().includes(q) ||
@@ -261,6 +263,7 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
     setEditingCamera(null);
     setFormData({
       name: '',
+      alias: '',
       dvr_nvr_name: 'NVR 01',
       location: '',
       ip_address: '',
@@ -277,6 +280,7 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
     setEditingCamera(cam);
     setFormData({
       name: cam.name,
+      alias: cam.alias || '',
       dvr_nvr_name: cam.dvr_nvr_name || '',
       location: cam.location || '',
       ip_address: cam.ip_address,
@@ -389,7 +393,17 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
           {cam.channel_no ? String(cam.channel_no).padStart(2, '0') : '--'}
         </TableCell>
         <TableCell>
-          <div className="font-semibold text-foreground text-xs">{cam.name}</div>
+          {cam.alias ? (
+            <div>
+              <div className="font-semibold text-foreground text-xs">{cam.alias}</div>
+              <div className="text-[10px] font-mono text-muted-foreground flex items-center gap-1 mt-0.5">
+                <span className="opacity-70">HW:</span>
+                <span className="truncate max-w-[200px]">{cam.name}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="font-semibold text-foreground text-xs">{cam.name}</div>
+          )}
           {cam.location && (
             <div className="text-[11px] text-muted-foreground truncate max-w-[220px]">
               {cam.location}
@@ -473,7 +487,7 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                  onClick={() => handleDeleteCamera(cam.id, cam.name)}
+                  onClick={() => handleDeleteCamera(cam.id, getCameraDisplayName(cam))}
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-2" />
                   <span>Delete Camera</span>
@@ -816,26 +830,70 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
           </DialogHeader>
 
           <form onSubmit={handleSaveCamera} className="space-y-3.5 text-xs pt-1">
+            {/* System Name (from NVR, non-editable when editing) & Custom Alias */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted-foreground mb-1 font-medium">Camera Name</label>
+                <label className="block text-muted-foreground mb-1 font-medium">
+                  System Name <span className="text-[10px] text-muted-foreground/70 font-normal">({editingCamera ? 'from NVR' : 'Hardware Title'})</span>
+                </label>
                 <Input
                   required
+                  disabled={Boolean(editingCamera)}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="h-8 text-xs"
-                  placeholder="e.g. Main Gate Camera"
+                  className={cn(
+                    "h-8 text-xs font-mono",
+                    editingCamera && "bg-muted/60 text-muted-foreground cursor-not-allowed border-dashed"
+                  )}
+                  placeholder="e.g. D4C1-RECEPTION"
                 />
+                {editingCamera ? (
+                  <span className="text-[10px] text-muted-foreground/70 block mt-0.5">
+                    Physical channel title from recorder (read-only)
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground/70 block mt-0.5">
+                    Hardware channel identifier
+                  </span>
+                )}
               </div>
+
               <div>
-                <label className="block text-muted-foreground mb-1 font-medium">NVR Bay Name</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-muted-foreground font-medium">
+                    Custom Alias
+                  </label>
+                  {Boolean(formData.alias) && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, alias: '' })}
+                      className="text-[10px] text-primary hover:underline font-normal cursor-pointer"
+                      title="Clear alias and revert to system name"
+                    >
+                      Use default or system name
+                    </button>
+                  )}
+                </div>
                 <Input
-                  value={formData.dvr_nvr_name}
-                  onChange={(e) => setFormData({ ...formData, dvr_nvr_name: e.target.value })}
-                  className="h-8 text-xs font-mono"
-                  placeholder="e.g. NVR 01"
+                  value={formData.alias}
+                  onChange={(e) => setFormData({ ...formData, alias: e.target.value })}
+                  className="h-8 text-xs"
+                  placeholder="e.g. Main Reception Desk"
                 />
+                <span className="text-[10px] text-muted-foreground/70 block mt-0.5 truncate">
+                  {formData.alias ? `Active: "${formData.alias}"` : `Default: "${formData.name || 'System Name'}"`}
+                </span>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-muted-foreground mb-1 font-medium">NVR Bay Name</label>
+              <Input
+                value={formData.dvr_nvr_name}
+                onChange={(e) => setFormData({ ...formData, dvr_nvr_name: e.target.value })}
+                className="h-8 text-xs font-mono"
+                placeholder="e.g. NVR 01"
+              />
             </div>
 
             <div className="grid grid-cols-3 gap-3">
