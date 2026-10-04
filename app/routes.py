@@ -454,7 +454,8 @@ def setup_routes(app):
             client_ip
         )
         async def _run_full_scan():
-            cameras = await cam_repo.get_all(enabled_only=True)
+            all_cams = await cam_repo.get_all(enabled_only=True)
+            cameras = [c for c in all_cams if not c.get("is_no_cam")]
             tasks = [engine.check_single_camera(c["id"]) for c in cameras]
             import asyncio
             await asyncio.gather(*tasks, return_exceptions=True)

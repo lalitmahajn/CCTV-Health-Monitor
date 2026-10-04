@@ -74,6 +74,7 @@ interface CameraGroup {
   stats: {
     total: number;
     online: number;
+    warning?: number;
     offline: number;
     spare: number;
   };
@@ -143,15 +144,18 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
 
     filteredCameras.forEach((cam) => {
       let key = '';
+      const isSpare = Boolean(cam.is_no_cam) || cam.status === 'NO_CAM' || (cam.name || '').toUpperCase().includes('NO CAM');
       if (groupBy === 'nvr') {
         key = (cam.dvr_nvr_name && cam.dvr_nvr_name.trim()) || 'Unassigned Bay';
       } else if (groupBy === 'location') {
         key = (cam.location && cam.location.trim()) || 'Unassigned Location';
       } else if (groupBy === 'status') {
-        if (cam.is_no_cam) {
+        if (isSpare) {
           key = 'SPARE';
         } else if (cam.status === 'ONLINE') {
           key = 'ONLINE';
+        } else if (cam.status === 'WARNING') {
+          key = 'WARNING';
         } else {
           key = 'OFFLINE';
         }
@@ -170,6 +174,7 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
 
       if (groupBy === 'status') {
         if (key === 'OFFLINE') title = 'Offline / Critical Outages';
+        else if (key === 'WARNING') title = 'High Latency / Warning';
         else if (key === 'SPARE') title = 'Spare / Unassigned Ports';
         else if (key === 'ONLINE') title = 'Online / Operational';
       } else if (groupBy === 'nvr') {
@@ -182,9 +187,11 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
       }
 
       const total = cams.length;
-      const online = cams.filter((c) => !c.is_no_cam && c.status === 'ONLINE').length;
-      const spare = cams.filter((c) => Boolean(c.is_no_cam)).length;
-      const offline = total - online - spare;
+      const isSpareCam = (c: Camera) => Boolean(c.is_no_cam) || c.status === 'NO_CAM' || (c.name || '').toUpperCase().includes('NO CAM');
+      const spare = cams.filter(isSpareCam).length;
+      const online = cams.filter((c) => !isSpareCam(c) && c.status === 'ONLINE').length;
+      const warning = cams.filter((c) => !isSpareCam(c) && c.status === 'WARNING').length;
+      const offline = cams.filter((c) => !isSpareCam(c) && c.status === 'OFFLINE').length;
 
       const sortedCams = [...cams].sort((a, b) => {
         const chA = parseInt(String(a.channel_no), 10);
@@ -199,14 +206,14 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
         subtitle,
         icon: groupBy === 'nvr' ? 'nvr' : groupBy === 'location' ? 'location' : 'status',
         cameras: sortedCams,
-        stats: { total, online, offline, spare },
+        stats: { total, online, warning, offline, spare },
       });
     });
 
     if (groupBy === 'nvr' || groupBy === 'location') {
       groups.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
     } else if (groupBy === 'status') {
-      const order: Record<string, number> = { OFFLINE: 0, SPARE: 1, ONLINE: 2 };
+      const order: Record<string, number> = { OFFLINE: 0, WARNING: 1, SPARE: 2, ONLINE: 3 };
       groups.sort((a, b) => (order[a.key] ?? 99) - (order[b.key] ?? 99));
     }
 
@@ -366,8 +373,9 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
   };
 
   const renderCameraRow = (cam: Camera, isIndented = false) => {
-    const isNoCam = Boolean(cam.is_no_cam);
+    const isNoCam = Boolean(cam.is_no_cam) || cam.status === 'NO_CAM' || (cam.name || '').toUpperCase().includes('NO CAM');
     const isOnline = !isNoCam && cam.status === 'ONLINE';
+    const isWarning = !isNoCam && cam.status === 'WARNING';
 
     return (
       <TableRow 
@@ -407,6 +415,11 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               Online
             </Badge>
+          ) : isWarning ? (
+            <Badge variant="outline" className="text-[10px] h-4 gap-1 font-normal text-amber-500 border-amber-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Warning
+            </Badge>
           ) : (
             <Badge variant="destructive" className="text-[10px] h-4 font-normal">
               Offline
@@ -414,7 +427,7 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
           )}
         </TableCell>
         <TableCell className="font-mono text-xs text-muted-foreground">
-          {isOnline && cam.latency_ms ? `${Math.round(cam.latency_ms)}ms` : '--'}
+          {(isOnline || isWarning) && cam.latency_ms ? `${Math.round(cam.latency_ms)}ms` : '--'}
         </TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1">
@@ -696,6 +709,12 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
                                 <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30 font-mono text-[10px] h-5 gap-1 font-normal">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                   {group.stats.online} Online
+                                </Badge>
+                              )}
+                              {group.stats.warning && group.stats.warning > 0 && (
+                                <Badge variant="outline" className="text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30 font-mono text-[10px] h-5 gap-1 font-normal">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                  {group.stats.warning} Warning
                                 </Badge>
                               )}
                               {group.stats.offline > 0 && (

@@ -227,6 +227,15 @@ class MonitoringEngine:
         if not camera:
             raise ValueError(f"Camera {camera_id} not found")
 
+        if camera.get("is_no_cam"):
+            return TransitionResult(
+                camera_id=camera_id,
+                old_status=camera.get("status", "NO_CAM"),
+                new_status="NO_CAM",
+                consecutive_failures=0,
+                message="Channel is marked as spare / unassigned slot"
+            )
+
         host = camera["ip_address"]
         port = camera["port"] or 554
         nvr_name = camera.get("dvr_nvr_name") or host

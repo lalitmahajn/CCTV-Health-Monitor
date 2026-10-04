@@ -214,5 +214,12 @@ async def init_db(db_path: str = None):
                 if val and not val.startswith("enc:"):
                     await db.execute("UPDATE settings SET value = ? WHERE key = ?", (encrypt_val(val), key))
 
+        # Ensure consistency between status and is_no_cam flag
+        await db.execute("""
+            UPDATE cameras 
+            SET is_no_cam = 1, status = 'NO_CAM', latency_ms = 0.0, last_error = NULL, consecutive_failures = 0
+            WHERE status = 'NO_CAM' OR UPPER(name) LIKE '%NO CAM%' OR UPPER(name) LIKE '%NO CAMERA%'
+        """)
+
         await db.commit()
 
