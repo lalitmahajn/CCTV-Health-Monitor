@@ -82,3 +82,46 @@ async def test_probe_rtsp_describe_and_scan():
     server.close()
     await server.wait_closed()
 
+
+@pytest.mark.asyncio
+async def test_check_rtsp_liveness_success_and_videoloss():
+    from app.scanner import check_rtsp_liveness
+
+    async def handle_rtsp(reader, writer):
+        data = await reader.read(1024)
+        text = data.decode(errors="ignore")
+        if "channel=1" in text:
+            sdp = "v=0\r\nm=video 0 RTP/AVP 96\r\n"
+            resp = f"RTSP/1.0 200 OK\r\nCSeq: 1\r\nContent-Length: {len(sdp)}\r\n\r\n{sdp}"
+        elif "channel=4" in text:
+            resp = "RTSP/1.0 404 Not Found\r\nCSeq: 1\r\n\r\n"
+        else:
+            resp = "RTSP/1.0 503 Video Loss\r\nCSeq: 1\r\n\r\n"
+        writer.write(resp.encode())
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+    server = await asyncio.start_server(handle_rtsp, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+
+    # 1. Healthy stream channel 1 -> returns (True, latency, None)
+    ok, lat, err = await check_rtsp_liveness(f"rtsp://127.0.0.1:{port}/cam/realmonitor?channel=1", timeout_sec=1.0)
+    assert ok is True
+    assert lat >= 0.0
+    assert err is None
+
+    # 2. Disconnected stream channel 4 -> returns (False, latency, "VIDEO_LOSS: ...")
+    ok4, lat4, err4 = await check_rtsp_liveness(f"rtsp://127.0.0.1:{port}/cam/realmonitor?channel=4", timeout_sec=1.0)
+    assert ok4 is False
+    assert "VIDEO_LOSS" in err4
+
+    # 3. Connection refused / host down
+    ok_down, _, err_down = await check_rtsp_liveness("rtsp://127.0.0.1:1/cam/realmonitor?channel=1", timeout_sec=0.5)
+    assert ok_down is False
+    assert err_down is not None
+
+    server.close()
+    await server.wait_closed()
+
+

@@ -187,61 +187,65 @@ async def probe_rtsp_url(rtsp_url: str, timeout_sec: float = 2.0) -> Dict[str, A
         path = p.path + ("?" + p.query if p.query else "")
         clean_url = f"rtsp://{host}:{port}{path}"
 
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port),
-            timeout=timeout_sec
-        )
-
-        req1 = (
-            f"DESCRIBE {clean_url} RTSP/1.0\r\n"
-            f"CSeq: 1\r\n"
-            f"User-Agent: CCTV-Health-Monitor\r\n"
-            f"Accept: application/sdp\r\n\r\n"
-        )
-        writer.write(req1.encode())
-        await writer.drain()
-
-        data1 = await asyncio.wait_for(reader.read(4096), timeout=timeout_sec)
-        resp1 = data1.decode("utf-8", errors="ignore")
-
-        final_resp = resp1
-        if "200 OK" not in resp1 and "WWW-Authenticate" in resp1:
-            auth_match = re.search(r'WWW-Authenticate:\s*Digest\s+(.+)', resp1, re.IGNORECASE)
-            if auth_match and user and pwd:
-                params = dict(re.findall(r'(\w+)="([^"]+)"', auth_match.group(1)))
-                realm = params.get("realm", "")
-                nonce = params.get("nonce", "")
-
-                ha1 = hashlib.md5(f"{user}:{realm}:{pwd}".encode()).hexdigest()
-                ha2 = hashlib.md5(f"DESCRIBE:{clean_url}".encode()).hexdigest()
-                response = hashlib.md5(f"{ha1}:{nonce}:{ha2}".encode()).hexdigest()
-
-                auth_hdr = f'Digest username="{user}", realm="{realm}", nonce="{nonce}", uri="{clean_url}", response="{response}"'
-                req2 = (
-                    f"DESCRIBE {clean_url} RTSP/1.0\r\n"
-                    f"CSeq: 2\r\n"
-                    f"User-Agent: CCTV-Health-Monitor\r\n"
-                    f"Authorization: {auth_hdr}\r\n"
-                    f"Accept: application/sdp\r\n\r\n"
-                )
-                writer.write(req2.encode())
-                await writer.drain()
-
-                data2 = await asyncio.wait_for(reader.read(4096), timeout=timeout_sec)
-                final_resp = data2.decode("utf-8", errors="ignore")
-
-        writer.close()
+        reader = None
+        writer = None
         try:
-            await writer.wait_closed()
-        except Exception:
-            pass
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=timeout_sec
+            )
+
+            req1 = (
+                f"DESCRIBE {clean_url} RTSP/1.0\r\n"
+                f"CSeq: 1\r\n"
+                f"User-Agent: CCTV-Health-Monitor\r\n"
+                f"Accept: application/sdp\r\n\r\n"
+            )
+            writer.write(req1.encode())
+            await writer.drain()
+
+            data1 = await asyncio.wait_for(reader.read(4096), timeout=timeout_sec)
+            resp1 = data1.decode("utf-8", errors="ignore")
+
+            final_resp = resp1
+            if "200 OK" not in resp1 and "WWW-Authenticate" in resp1:
+                auth_match = re.search(r'WWW-Authenticate:\s*Digest\s+(.+)', resp1, re.IGNORECASE)
+                if auth_match and user and pwd:
+                    params = dict(re.findall(r'(\w+)="([^"]+)"', auth_match.group(1)))
+                    realm = params.get("realm", "")
+                    nonce = params.get("nonce", "")
+
+                    ha1 = hashlib.md5(f"{user}:{realm}:{pwd}".encode()).hexdigest()
+                    ha2 = hashlib.md5(f"DESCRIBE:{clean_url}".encode()).hexdigest()
+                    response = hashlib.md5(f"{ha1}:{nonce}:{ha2}".encode()).hexdigest()
+
+                    auth_hdr = f'Digest username="{user}", realm="{realm}", nonce="{nonce}", uri="{clean_url}", response="{response}"'
+                    req2 = (
+                        f"DESCRIBE {clean_url} RTSP/1.0\r\n"
+                        f"CSeq: 2\r\n"
+                        f"User-Agent: CCTV-Health-Monitor\r\n"
+                        f"Authorization: {auth_hdr}\r\n"
+                        f"Accept: application/sdp\r\n\r\n"
+                    )
+                    writer.write(req2.encode())
+                    await writer.drain()
+
+                    data2 = await asyncio.wait_for(reader.read(4096), timeout=timeout_sec)
+                    final_resp = data2.decode("utf-8", errors="ignore")
+        finally:
+            if writer is not None:
+                try:
+                    writer.close()
+                    await writer.wait_closed()
+                except Exception:
+                    pass
 
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
 
         if "200 OK" in final_resp:
             return {"status": "STREAMING", "status_code": 200, "latency_ms": elapsed_ms, "message": "Stream active"}
-        elif "404 Not Found" in final_resp:
-            return {"status": "EMPTY", "status_code": 404, "latency_ms": elapsed_ms, "message": "No stream / channel empty"}
+        elif any(code in final_resp for code in ("404 Not Found", "404", "503", "410", "400")):
+            return {"status": "EMPTY", "status_code": 404, "latency_ms": elapsed_ms, "message": "Video loss / channel offline"}
         elif "401" in final_resp:
             return {"status": "AUTH_FAILED", "status_code": 401, "latency_ms": elapsed_ms, "message": "Auth required or invalid"}
         else:
@@ -252,6 +256,28 @@ async def probe_rtsp_url(rtsp_url: str, timeout_sec: float = 2.0) -> Dict[str, A
         return {"status": "TIMEOUT", "status_code": 0, "latency_ms": round((time.perf_counter() - t0) * 1000, 1), "message": f"Timed out after {timeout_sec}s"}
     except Exception as e:
         return {"status": "ERROR", "status_code": 0, "latency_ms": 0.0, "message": str(e)}
+
+
+async def check_rtsp_liveness(rtsp_url: str, timeout_sec: float = 2.0) -> Tuple[bool, float, Optional[str]]:
+    """
+    Lightweight RTSP DESCRIBE probe for individual camera channel health.
+    Matches the (success, latency_ms, error) signature of check_tcp_liveness.
+    """
+    res = await probe_rtsp_url(rtsp_url, timeout_sec=timeout_sec)
+    status = res.get("status")
+    latency_ms = float(res.get("latency_ms", 0.0))
+    msg = res.get("message", "")
+
+    if status == "STREAMING":
+        return True, latency_ms, None
+    elif status in ("EMPTY", "INACTIVE"):
+        return False, latency_ms, f"VIDEO_LOSS: {msg or 'Channel unassigned or video signal lost'}"
+    elif status == "AUTH_FAILED":
+        return False, latency_ms, f"AUTH_FAILED: {msg or 'RTSP authentication required or invalid'}"
+    elif status == "TIMEOUT":
+        return False, latency_ms, f"TIMEOUT: {msg or 'RTSP handshake timed out'}"
+    else:
+        return False, latency_ms, f"ERROR: {msg or 'Failed to probe RTSP stream'}"
 
 
 async def probe_rtsp_describe(
