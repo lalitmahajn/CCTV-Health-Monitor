@@ -614,7 +614,6 @@ def setup_routes(app):
         Returns operating camera counts across time for selectable periods (24h, 7d, 30d).
         """
         import datetime
-        import hashlib
 
         valid_periods = {"1h", "6h", "24h", "7d", "30d", "90d"}
         if period not in valid_periods:
@@ -677,10 +676,7 @@ def setup_routes(app):
                 if offline_at_ts > 0:
                     operating = max(0, total_provisioned - offline_at_ts)
                 else:
-                    h = int(hashlib.md5(f"{period}-{ts.strftime('%Y-%m-%d-%H')}".encode()).hexdigest(), 16)
-                    jitter = (h % 4)
-                    operating = max(0, total_provisioned - current_offline - jitter)
-                    operating = min(total_provisioned, operating)
+                    operating = total_provisioned
 
             operating_counts.append(operating)
             data_points.append({

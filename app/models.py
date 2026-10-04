@@ -244,9 +244,9 @@ class IncidentRepository:
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             query = """
-                SELECT i.*, c.name as camera_name, c.location, c.dvr_nvr_name, c.channel_no, c.ip_address
+                SELECT i.*, COALESCE(c.name, 'Camera #' || i.camera_id) as camera_name, c.location, c.dvr_nvr_name, c.channel_no, c.ip_address
                 FROM incidents i
-                JOIN cameras c ON i.camera_id = c.id
+                LEFT JOIN cameras c ON i.camera_id = c.id
                 WHERE i.resolved_at IS NULL
             """
             params = []
@@ -269,9 +269,9 @@ class IncidentRepository:
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             query = """
-                SELECT i.*, c.name as camera_name, c.location, c.dvr_nvr_name, c.channel_no, c.ip_address
+                SELECT i.*, COALESCE(c.name, 'Camera #' || i.camera_id) as camera_name, c.location, c.dvr_nvr_name, c.channel_no, c.ip_address
                 FROM incidents i
-                JOIN cameras c ON i.camera_id = c.id
+                LEFT JOIN cameras c ON i.camera_id = c.id
                 ORDER BY i.started_at DESC LIMIT ?
             """
             async with db.execute(query, (limit,)) as cursor:

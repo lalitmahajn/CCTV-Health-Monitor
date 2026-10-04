@@ -11,6 +11,7 @@ __pycache__/
 *.sqlite
 *.sqlite3
 cctv_monitor.db
+TEMP/
 
 # Proprietary spreadsheets / plant data
 *.xlsx
