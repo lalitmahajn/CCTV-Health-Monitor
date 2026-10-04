@@ -17,7 +17,7 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
   onSelect,
   onQuickPing,
 }) => {
-  const isNoCam = Boolean(camera.is_no_cam);
+  const isNoCam = Boolean(camera.is_no_cam) || camera.status === 'NO_CAM' || (camera.name || '').toUpperCase().includes('NO CAM');
   const isOnline = !isNoCam && camera.status === 'ONLINE';
   const isWarning = !isNoCam && camera.status === 'WARNING';
   const isOffline = !isNoCam && camera.status === 'OFFLINE';
