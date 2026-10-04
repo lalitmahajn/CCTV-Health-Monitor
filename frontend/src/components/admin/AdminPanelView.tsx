@@ -1512,7 +1512,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                             type="text"
                             value={csvUsername}
                             onChange={(e) => setCsvUsername(e.target.value)}
-                            placeholder="e.g. admin or arechs_cctv"
+                            placeholder="e.g. admin"
                             className="h-8 text-xs font-mono"
                           />
                         </div>

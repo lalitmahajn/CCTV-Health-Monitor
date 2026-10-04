@@ -959,7 +959,7 @@ export const CameraInventoryView: React.FC<CameraInventoryViewProps> = ({
                     type="text"
                     value={importUsername}
                     onChange={(e) => setImportUsername(e.target.value)}
-                    placeholder="e.g. admin or arechs_cctv"
+                    placeholder="e.g. admin"
                     className="h-8 text-xs font-mono"
                   />
                 </div>

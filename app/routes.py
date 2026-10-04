@@ -227,8 +227,8 @@ def setup_routes(app):
         nvr_cams = [c for c in cameras if c.get("dvr_nvr_name", "").lower() == nvr_name.lower()]
 
         # Extract credentials and path pattern from existing camera if available
-        user = "arechs_cctv"
-        pwd = "scpl@2026"
+        user = "admin"
+        pwd = ""
         path_template = "/cam/realmonitor?channel={channel}&subtype=0"
 
         for c in nvr_cams:
