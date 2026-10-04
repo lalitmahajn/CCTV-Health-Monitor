@@ -43,6 +43,10 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
     dotColor = 'bg-muted-foreground/30';
   }
 
+  const isLocationRedundant = !camera.location ||
+    camera.name.toLowerCase().includes(camera.location.toLowerCase()) ||
+    camera.location.toLowerCase().includes(camera.name.toLowerCase());
+
   return (
     <HoverCard openDelay={200} closeDelay={150}>
       <HoverCardTrigger asChild>
@@ -68,8 +72,8 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
             </div>
           </div>
 
-          {/* Bottom area: Camera Name & Location (No duplicate IP) */}
-          <div className="w-full mt-auto">
+          {/* Main content: Camera Name & distinct status/location */}
+          <div className="w-full mt-auto space-y-0.5">
             {isNoCam ? (
               <span className="text-[11px] font-mono text-muted-foreground/60 uppercase">
                 Spare Port
@@ -77,30 +81,24 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
             ) : (
               <>
                 <p 
-                  className="text-[11px] font-medium text-foreground truncate leading-tight group-hover:text-primary transition-colors"
+                  className="text-xs font-semibold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors"
                   title={camera.name}
                 >
                   {camera.name}
                 </p>
-                <div className="mt-0.5">
-                  {isOffline ? (
-                    <span className="text-[10px] text-destructive font-medium truncate block">
-                      {camera.last_error?.includes('TIMEOUT') ? 'RTSP Timeout' : (camera.last_error?.slice(0, 20) || 'Stream Down')}
-                    </span>
-                  ) : isWarning ? (
-                    <span className="text-[10px] text-amber-500/90 font-medium truncate block">
-                      High Latency
-                    </span>
-                  ) : camera.location && camera.location.toLowerCase() !== camera.name.toLowerCase() ? (
-                    <span className="text-[10px] text-muted-foreground truncate block">
-                      {camera.location}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground/60 font-mono truncate block">
-                      Stream Active
-                    </span>
-                  )}
-                </div>
+                {isOffline ? (
+                  <span className="text-[10px] text-destructive font-medium truncate block">
+                    Offline{camera.last_error?.includes('TIMEOUT') ? ' · Timeout' : ''}
+                  </span>
+                ) : isWarning ? (
+                  <span className="text-[10px] text-amber-500 font-medium truncate block">
+                    High Latency
+                  </span>
+                ) : !isLocationRedundant ? (
+                  <span className="text-[10px] text-muted-foreground truncate block">
+                    {camera.location}
+                  </span>
+                ) : null}
               </>
             )}
           </div>
