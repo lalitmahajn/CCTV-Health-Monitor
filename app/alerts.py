@@ -14,6 +14,14 @@ class BaseAlertNotifier(ABC):
     async def send_recovery(self, camera: Dict[str, Any], incident: Dict[str, Any], duration_seconds: int) -> bool:
         pass
 
+    @abstractmethod
+    async def send_nvr_outage(self, nvr: Dict[str, Any], channel_count: int, error_reason: str) -> bool:
+        pass
+
+    @abstractmethod
+    async def send_nvr_recovery(self, nvr: Dict[str, Any], channel_count: int, duration_seconds: int) -> bool:
+        pass
+
 
 class WebAlertNotifier(BaseAlertNotifier):
     """
@@ -53,6 +61,22 @@ class WebAlertNotifier(BaseAlertNotifier):
         await self.broadcast_event("CAMERA_RECOVERED", {
             "camera": camera,
             "incident": incident,
+            "duration_seconds": duration_seconds
+        })
+        return True
+
+    async def send_nvr_outage(self, nvr: Dict[str, Any], channel_count: int, error_reason: str) -> bool:
+        await self.broadcast_event("NVR_DOWN", {
+            "nvr": nvr,
+            "channel_count": channel_count,
+            "error_reason": error_reason
+        })
+        return True
+
+    async def send_nvr_recovery(self, nvr: Dict[str, Any], channel_count: int, duration_seconds: int) -> bool:
+        await self.broadcast_event("NVR_RECOVERED", {
+            "nvr": nvr,
+            "channel_count": channel_count,
             "duration_seconds": duration_seconds
         })
         return True
@@ -307,6 +331,34 @@ class EmailAlertNotifier(BaseAlertNotifier):
         )
         return await self._send_smtp(subject, body, is_test=is_test)
 
+    async def send_nvr_outage(self, nvr: Dict[str, Any], channel_count: int, error_reason: str) -> bool:
+        name = nvr.get("name", "Unknown NVR")
+        host = nvr.get("ip_address", "Unknown IP")
+        subject = f"🚨 [CRITICAL NVR OUTAGE] {name} is UNREACHABLE ({channel_count} channels impacted)"
+        body = (
+            f"=== CRITICAL NVR RECORDER OUTAGE ===\n\n"
+            f"Recorder Name: {name}\n"
+            f"Host Address: {host}\n"
+            f"Impacted Channels: {channel_count}\n"
+            f"Error Reason: {error_reason}\n\n"
+            f"The parent NVR hardware has stopped responding to TCP network probes.\n"
+            f"Please verify physical server rack power, switch connectivity, and power supply immediately.\n\n"
+            f"— CCTV Health Monitoring Alert Daemon"
+        )
+        return await self._send_smtp(subject, body)
+
+    async def send_nvr_recovery(self, nvr: Dict[str, Any], channel_count: int, duration_seconds: int) -> bool:
+        name = nvr.get("name", "Unknown NVR")
+        subject = f"✅ [NVR RECOVERED] {name} is BACK ONLINE ({channel_count} channels restored)"
+        body = (
+            f"=== NVR RECORDER RECOVERY ===\n\n"
+            f"Recorder Name: {name}\n"
+            f"Channels Restored: {channel_count}\n"
+            f"Total Downtime: {duration_seconds} seconds\n"
+            f"Status: Normal TCP & RTSP communications re-established.\n\n"
+            f"— CCTV Health Monitoring Alert Daemon"
+        )
+        return await self._send_smtp(subject, body)
 
 
 class TelegramAlertNotifier(BaseAlertNotifier):
@@ -319,13 +371,19 @@ class TelegramAlertNotifier(BaseAlertNotifier):
         self.chat_id = chat_id
 
     async def send_outage(self, camera: Dict[str, Any], incident: Dict[str, Any]) -> bool:
-        # Stub implementation - ready for Telegram bot API calls
         logger.info(f"[Telegram Alert Stub] Outage alert for camera {camera.get('name')}: {incident.get('error_reason')}")
         return True
 
     async def send_recovery(self, camera: Dict[str, Any], incident: Dict[str, Any], duration_seconds: int) -> bool:
-        # Stub implementation - ready for Telegram bot API calls
         logger.info(f"[Telegram Alert Stub] Recovery alert for camera {camera.get('name')}, downtime: {duration_seconds}s")
+        return True
+
+    async def send_nvr_outage(self, nvr: Dict[str, Any], channel_count: int, error_reason: str) -> bool:
+        logger.info(f"[Telegram Alert Stub] NVR outage alert for {nvr.get('name')}: {error_reason}")
+        return True
+
+    async def send_nvr_recovery(self, nvr: Dict[str, Any], channel_count: int, duration_seconds: int) -> bool:
+        logger.info(f"[Telegram Alert Stub] NVR recovery alert for {nvr.get('name')}, downtime: {duration_seconds}s")
         return True
 
 
@@ -353,3 +411,17 @@ class AlertManager:
                 await notifier.send_recovery(camera, incident, duration_seconds)
             except Exception as e:
                 logger.error(f"Notifier {notifier.__class__.__name__} failed on recovery: {e}")
+
+    async def dispatch_nvr_outage(self, nvr: Dict[str, Any], channel_count: int, error_reason: str):
+        for notifier in self.notifiers:
+            try:
+                await notifier.send_nvr_outage(nvr, channel_count, error_reason)
+            except Exception as e:
+                logger.error(f"Notifier {notifier.__class__.__name__} failed on nvr outage: {e}")
+
+    async def dispatch_nvr_recovery(self, nvr: Dict[str, Any], channel_count: int, duration_seconds: int = 0):
+        for notifier in self.notifiers:
+            try:
+                await notifier.send_nvr_recovery(nvr, channel_count, duration_seconds)
+            except Exception as e:
+                logger.error(f"Notifier {notifier.__class__.__name__} failed on nvr recovery: {e}")
