@@ -164,6 +164,40 @@ class NvrRepository:
                 rows = await cursor.fetchall()
                 return [dict(r) for r in rows]
 
+    async def get_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        async with get_db(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM nvrs WHERE name = ?", (name,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+
+    async def get_by_ip(self, ip_address: str) -> Optional[Dict[str, Any]]:
+        async with get_db(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM nvrs WHERE ip_address = ? LIMIT 1", (ip_address,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+
+    async def update_status(self, name: str, status: str, latency_ms: float = 0.0,
+                            consecutive_failures: int = 0, last_error: Optional[str] = None):
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        async with get_db(self.db_path) as db:
+            if status == "ONLINE":
+                await db.execute("""
+                    UPDATE nvrs
+                    SET status = ?, latency_ms = ?, consecutive_failures = ?,
+                        last_error = ?, last_checked = ?, last_seen = ?
+                    WHERE name = ?
+                """, (status, latency_ms, consecutive_failures, last_error, now, now, name))
+            else:
+                await db.execute("""
+                    UPDATE nvrs
+                    SET status = ?, latency_ms = ?, consecutive_failures = ?,
+                        last_error = ?, last_checked = ?
+                    WHERE name = ?
+                """, (status, latency_ms, consecutive_failures, last_error, now, name))
+            await db.commit()
+
     async def rename(self, old_name: str, new_name: str) -> int:
         old_name = old_name.strip()
         new_name = new_name.strip()

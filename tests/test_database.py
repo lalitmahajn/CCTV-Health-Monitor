@@ -82,3 +82,58 @@ async def test_users_and_audit_logs(tmp_path):
     assert len(logs) >= 1
     assert any("admin" in l["description"].lower() or "INITIALIZED" in l["event_type"] for l in logs)
 
+@pytest.mark.asyncio
+async def test_nvr_health_telemetry_and_update_status(tmp_path):
+    test_db = str(tmp_path / "test_nvr.db")
+    await init_db(test_db)
+    
+    from app.models import NvrRepository
+    nvr_repo = NvrRepository(test_db)
+    
+    # 1. Upsert NVR
+    await nvr_repo.upsert(
+        name="NVR-Alpha",
+        ip_address="192.168.1.50",
+        port=554,
+        total_channels=16,
+        used_channels=12,
+        make="Hikvision",
+        model="DS-7616NI"
+    )
+    
+    # 2. Check initial health columns exist with defaults
+    nvr = await nvr_repo.get_by_name("NVR-Alpha")
+    assert nvr is not None
+    assert nvr["status"] == "UNKNOWN"
+    assert nvr["latency_ms"] == 0.0
+    assert nvr["consecutive_failures"] == 0
+    
+    # 3. Update status to ONLINE
+    await nvr_repo.update_status(
+        name="NVR-Alpha",
+        status="ONLINE",
+        latency_ms=2.4,
+        consecutive_failures=0,
+        last_error=None
+    )
+    updated = await nvr_repo.get_by_name("NVR-Alpha")
+    assert updated["status"] == "ONLINE"
+    assert updated["latency_ms"] == 2.4
+    assert updated["last_seen"] is not None
+    assert updated["last_checked"] is not None
+    assert updated["last_error"] is None
+    
+    # 4. Update status to OFFLINE
+    await nvr_repo.update_status(
+        name="NVR-Alpha",
+        status="OFFLINE",
+        latency_ms=0.0,
+        consecutive_failures=3,
+        last_error="ConnectionRefused: Host unreachable"
+    )
+    offline_nvr = await nvr_repo.get_by_name("NVR-Alpha")
+    assert offline_nvr["status"] == "OFFLINE"
+    assert offline_nvr["consecutive_failures"] == 3
+    assert "Host unreachable" in offline_nvr["last_error"]
+
+

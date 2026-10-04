@@ -58,9 +58,29 @@ async def init_db(db_path: str = None):
                 total_channels INTEGER DEFAULT 16,
                 used_channels INTEGER DEFAULT 0,
                 make TEXT,
-                model TEXT
+                model TEXT,
+                status TEXT DEFAULT 'UNKNOWN',
+                latency_ms REAL DEFAULT 0.0,
+                last_checked DATETIME,
+                last_seen DATETIME,
+                consecutive_failures INTEGER DEFAULT 0,
+                last_error TEXT
             )
         """)
+
+        # Migration: add health columns to nvrs table if missing in existing databases
+        for col_name, col_type in [
+            ("status", "TEXT DEFAULT 'UNKNOWN'"),
+            ("latency_ms", "REAL DEFAULT 0.0"),
+            ("last_checked", "DATETIME"),
+            ("last_seen", "DATETIME"),
+            ("consecutive_failures", "INTEGER DEFAULT 0"),
+            ("last_error", "TEXT")
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE nvrs ADD COLUMN {col_name} {col_type}")
+            except Exception:
+                pass
         
         # Incidents table
         await db.execute("""
