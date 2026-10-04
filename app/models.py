@@ -17,14 +17,16 @@ class CameraRepository:
     async def create(self, name: str, ip_address: str, rtsp_url: str,
                      dvr_nvr_name: str = "", location: str = "",
                      port: int = 554, channel_no: str = "",
-                     is_enabled: bool = True, is_no_cam: bool = False) -> int:
+                     is_enabled: bool = True, is_no_cam: bool = False,
+                     alias: Optional[str] = None) -> int:
         stored_url = encrypt_val(rtsp_url)
+        clean_alias = alias.strip() if alias and alias.strip() else None
         async with get_db(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("""
-                INSERT INTO cameras (name, dvr_nvr_name, location, ip_address, port, channel_no, rtsp_url, is_enabled, is_no_cam)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (name, dvr_nvr_name, location, ip_address, port, str(channel_no), stored_url, 1 if is_enabled else 0, 1 if is_no_cam else 0))
+                INSERT INTO cameras (name, dvr_nvr_name, location, ip_address, port, channel_no, rtsp_url, is_enabled, is_no_cam, alias)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (name, dvr_nvr_name, location, ip_address, port, str(channel_no), stored_url, 1 if is_enabled else 0, 1 if is_no_cam else 0, clean_alias))
             await db.commit()
             return cursor.lastrowid
 
@@ -97,12 +99,14 @@ class CameraRepository:
             return cursor.rowcount > 0
 
     async def update(self, camera_id: int, **fields) -> bool:
-        allowed = {"name", "dvr_nvr_name", "location", "ip_address", "port", "channel_no", "rtsp_url", "is_enabled", "is_no_cam"}
+        allowed = {"name", "dvr_nvr_name", "location", "ip_address", "port", "channel_no", "rtsp_url", "is_enabled", "is_no_cam", "alias"}
         set_clauses = []
         params = []
         for k, v in fields.items():
             if k in allowed:
-                if k == "rtsp_url":
+                if k == "alias":
+                    v = v.strip() if v and isinstance(v, str) and v.strip() else None
+                elif k == "rtsp_url":
                     if is_masked_url(v):
                         # Masked placeholder passed from UI, keep existing encrypted URL
                         continue

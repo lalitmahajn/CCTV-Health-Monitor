@@ -38,6 +38,7 @@ async def init_db(db_path: str = None):
                 thumbnail_path TEXT,
                 is_enabled BOOLEAN DEFAULT 1,
                 is_no_cam BOOLEAN DEFAULT 0,
+                alias TEXT DEFAULT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
@@ -46,6 +47,12 @@ async def init_db(db_path: str = None):
         # Migration: add is_no_cam column if existing database doesn't have it
         try:
             await db.execute("ALTER TABLE cameras ADD COLUMN is_no_cam BOOLEAN DEFAULT 0")
+        except Exception:
+            pass
+
+        # Migration: add alias column if existing database doesn't have it
+        try:
+            await db.execute("ALTER TABLE cameras ADD COLUMN alias TEXT DEFAULT NULL")
         except Exception:
             pass
 

@@ -21,6 +21,7 @@ from app.paths import get_snapshots_dir
 
 class CameraCreate(BaseModel):
     name: str
+    alias: Optional[str] = None
     dvr_nvr_name: Optional[str] = ""
     location: Optional[str] = ""
     ip_address: str
@@ -32,6 +33,7 @@ class CameraCreate(BaseModel):
 
 class CameraUpdate(BaseModel):
     name: Optional[str] = None
+    alias: Optional[str] = None
     dvr_nvr_name: Optional[str] = None
     location: Optional[str] = None
     ip_address: Optional[str] = None

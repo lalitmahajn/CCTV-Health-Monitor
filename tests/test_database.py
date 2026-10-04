@@ -137,3 +137,42 @@ async def test_nvr_health_telemetry_and_update_status(tmp_path):
     assert "Host unreachable" in offline_nvr["last_error"]
 
 
+@pytest.mark.asyncio
+async def test_camera_alias_crud(tmp_path):
+    test_db = str(tmp_path / "test_alias.db")
+    await init_db(test_db)
+    repo = CameraRepository(test_db)
+    
+    # 1. Create with alias
+    cam_id = await repo.create(
+        name="D4C1-RECEPTION",
+        ip_address="192.168.0.245",
+        rtsp_url="rtsp://admin:pass@192.168.0.245:554/cam1",
+        channel_no="1",
+        alias="Front Lobby Reception"
+    )
+    cam = await repo.get_by_id(cam_id)
+    assert cam["name"] == "D4C1-RECEPTION"
+    assert cam["alias"] == "Front Lobby Reception"
+
+    # 2. Update alias
+    await repo.update(cam_id, alias="Main Reception Desk")
+    cam = await repo.get_by_id(cam_id)
+    assert cam["alias"] == "Main Reception Desk"
+
+    # 3. Reset alias to None (Use default or system name)
+    await repo.update(cam_id, alias=None)
+    cam = await repo.get_by_id(cam_id)
+    assert cam["alias"] is None
+
+    # 4. Reset alias by passing empty string
+    await repo.update(cam_id, alias="Temporary Label")
+    cam = await repo.get_by_id(cam_id)
+    assert cam["alias"] == "Temporary Label"
+
+    await repo.update(cam_id, alias="")
+    cam = await repo.get_by_id(cam_id)
+    assert cam["alias"] is None
+
+
+
