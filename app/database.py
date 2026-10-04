@@ -61,6 +61,13 @@ async def init_db(db_path: str = None):
         except Exception:
             pass
 
+        # Migration: update failure_threshold to 3 and socket_timeout_ms to 4500 to prevent startup false alarm storms
+        try:
+            await db.execute("UPDATE settings SET value = '3' WHERE key = 'failure_threshold' AND value = '2'")
+            await db.execute("UPDATE settings SET value = '4500' WHERE key = 'socket_timeout_ms' AND value = '3000'")
+        except Exception:
+            pass
+
         # NVR Metadata table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS nvrs (
@@ -120,8 +127,8 @@ async def init_db(db_path: str = None):
         defaults = [
             ("ping_interval_seconds", "30", "TCP ping interval in seconds"),
             ("snapshot_interval_seconds", "600", "Frame grab interval in seconds"),
-            ("failure_threshold", "2", "Consecutive failures before marking OFFLINE"),
-            ("socket_timeout_ms", "3000", "TCP socket connection timeout in ms"),
+            ("failure_threshold", "3", "Consecutive failures before marking OFFLINE"),
+            ("socket_timeout_ms", "4500", "TCP socket connection timeout in ms"),
             ("latency_warning_threshold_ms", "1500", "Latency threshold for WARNING status in ms"),
             ("enable_black_screen_detection", "false", "Check if grabbed frame is completely black"),
             ("enable_frozen_frame_detection", "false", "Check if consecutive frames are identical"),

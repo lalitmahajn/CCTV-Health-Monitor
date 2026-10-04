@@ -27,23 +27,30 @@ async def test_state_transitions_and_incidents(tmp_path):
     active_incidents = await inc_repo.get_active(cam_id)
     assert len(active_incidents) == 0
     
-    # 2nd failure -> OFFLINE, incident opened
+    # 2nd failure -> WARNING, still under failure_threshold (3)
     res2 = await sm.process_check_result(cam_id, success=False, latency_ms=0, error="Timeout")
-    assert res2.new_status == "OFFLINE"
+    assert res2.new_status == "WARNING"
     assert res2.consecutive_failures == 2
-    assert res2.opened_incident_id is not None
+    active_incidents = await inc_repo.get_active(cam_id)
+    assert len(active_incidents) == 0
+
+    # 3rd failure -> OFFLINE, incident opened
+    res3 = await sm.process_check_result(cam_id, success=False, latency_ms=0, error="Timeout")
+    assert res3.new_status == "OFFLINE"
+    assert res3.consecutive_failures == 3
+    assert res3.opened_incident_id is not None
     active_incidents = await inc_repo.get_active(cam_id)
     assert len(active_incidents) == 1
     assert active_incidents[0]["error_reason"] == "Timeout"
     
     # Recovery -> ONLINE, incident closed with duration
-    res3 = await sm.process_check_result(cam_id, success=True, latency_ms=15.2, error=None)
-    assert res3.new_status == "ONLINE"
-    assert res3.consecutive_failures == 0
-    assert res3.closed_incident_id == res2.opened_incident_id
+    res4 = await sm.process_check_result(cam_id, success=True, latency_ms=15.2, error=None)
+    assert res4.new_status == "ONLINE"
+    assert res4.consecutive_failures == 0
+    assert res4.closed_incident_id == res3.opened_incident_id
     active_incidents = await inc_repo.get_active(cam_id)
     assert len(active_incidents) == 0
-    resolved = await inc_repo.get_by_id(res2.opened_incident_id)
+    resolved = await inc_repo.get_by_id(res3.opened_incident_id)
     assert resolved["resolved_at"] is not None
     assert resolved["duration_seconds"] >= 0
 

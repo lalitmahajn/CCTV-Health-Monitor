@@ -167,7 +167,7 @@ async def grab_rtsp_snapshot(rtsp_url: str, output_path: str, timeout_sec: int =
         return False, f"Worker error: {str(e)}", None
 
 
-async def probe_rtsp_url(rtsp_url: str, timeout_sec: float = 2.0) -> Dict[str, Any]:
+async def probe_rtsp_url(rtsp_url: str, timeout_sec: float = 4.5) -> Dict[str, Any]:
     """
     Fast async RTSP DESCRIBE pre-check directly on a URL.
     Returns status: STREAMING, EMPTY, AUTH_FAILED, TIMEOUT, or INACTIVE.
@@ -258,7 +258,7 @@ async def probe_rtsp_url(rtsp_url: str, timeout_sec: float = 2.0) -> Dict[str, A
         return {"status": "ERROR", "status_code": 0, "latency_ms": 0.0, "message": str(e)}
 
 
-async def check_rtsp_liveness(rtsp_url: str, timeout_sec: float = 2.0) -> Tuple[bool, float, Optional[str]]:
+async def check_rtsp_liveness(rtsp_url: str, timeout_sec: float = 4.5) -> Tuple[bool, float, Optional[str]]:
     """
     Lightweight RTSP DESCRIBE probe for individual camera channel health.
     Matches the (success, latency_ms, error) signature of check_tcp_liveness.

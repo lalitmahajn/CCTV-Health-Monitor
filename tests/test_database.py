@@ -12,9 +12,9 @@ async def test_database_initialization_and_default_settings(tmp_path):
     settings_repo = SettingsRepository(test_db)
     settings = await settings_repo.get_all()
     assert "failure_threshold" in settings
-    assert int(settings["failure_threshold"]) == 2
+    assert int(settings["failure_threshold"]) == 3
     assert "socket_timeout_ms" in settings
-    assert int(settings["socket_timeout_ms"]) == 3000
+    assert int(settings["socket_timeout_ms"]) == 4500
 
 @pytest.mark.asyncio
 async def test_camera_crud_and_masking(tmp_path):

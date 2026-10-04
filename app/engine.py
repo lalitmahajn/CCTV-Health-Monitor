@@ -35,7 +35,8 @@ class StateMachine:
         success: bool,
         latency_ms: float = 0.0,
         error: Optional[str] = None,
-        thumbnail_path: Optional[str] = None
+        thumbnail_path: Optional[str] = None,
+        is_warmup: bool = False
     ) -> TransitionResult:
         camera = await self.camera_repo.get_by_id(camera_id)
         if not camera:
@@ -45,7 +46,7 @@ class StateMachine:
         failures = camera["consecutive_failures"]
         
         # Load configurable thresholds
-        failure_threshold = int(await self.settings_repo.get("failure_threshold", 2))
+        failure_threshold = int(await self.settings_repo.get("failure_threshold", 3))
         latency_warning_threshold = float(await self.settings_repo.get("latency_warning_threshold_ms", 1500))
 
         opened_incident_id = None
@@ -74,7 +75,12 @@ class StateMachine:
 
         else:
             new_failures = failures + 1
-            if new_failures >= failure_threshold:
+            if is_warmup and old_status != "OFFLINE":
+                # Warmup grace: do not trigger alarm storms on initial cold boot
+                new_status = "WARNING"
+                new_failures = 1
+                message = f"Startup grace period: {error or 'Check failed'}"
+            elif new_failures >= failure_threshold:
                 new_status = "OFFLINE"
                 message = f"Camera offline: {error or 'Check failed'}"
                 # If not already OFFLINE with an open incident, open one
@@ -125,6 +131,7 @@ class MonitoringEngine:
         self.alert_callback = alert_callback
         self.throttler = HostThrottler(max_per_host=2)
         self.is_running = False
+        self.is_warmup = True
         self._ping_task = None
 
     async def start(self):
@@ -151,8 +158,8 @@ class MonitoringEngine:
 
         port = int(cams[0].get("port") or 554)
         nvr_name = cams[0].get("dvr_nvr_name") or host
-        timeout_ms = int(await self.settings_repo.get("socket_timeout_ms", 3000))
-        timeout_sec = timeout_ms / 1000.0
+        timeout_ms = int(await self.settings_repo.get("socket_timeout_ms", 4500))
+        timeout_sec = max(float(timeout_ms) / 1000.0, 4.5)
 
         # Tier 1: NVR / Recorder Hardware Liveness (TCP Ping)
         async with self.throttler.acquire(host):
@@ -184,7 +191,8 @@ class MonitoringEngine:
                     camera_id=cam["id"],
                     success=False,
                     latency_ms=0.0,
-                    error=error_reason
+                    error=error_reason,
+                    is_warmup=self.is_warmup
                 )
                 if self.alert_callback and (res.opened_incident_id or res.closed_incident_id or res.old_status != res.new_status):
                     await self.alert_callback(cam, res)
@@ -195,7 +203,7 @@ class MonitoringEngine:
             rtsp_url = cam.get("rtsp_url")
             async with self.throttler.acquire(host):
                 if rtsp_url:
-                    cam_success, cam_lat, cam_err = await check_rtsp_liveness(rtsp_url, timeout_sec=min(timeout_sec, 2.5))
+                    cam_success, cam_lat, cam_err = await check_rtsp_liveness(rtsp_url, timeout_sec=timeout_sec)
                 else:
                     cam_success, cam_lat, cam_err = await check_tcp_liveness(host, port, timeout_ms)
 
@@ -203,13 +211,14 @@ class MonitoringEngine:
                 camera_id=cam["id"],
                 success=cam_success,
                 latency_ms=cam_lat,
-                error=cam_err
+                error=cam_err,
+                is_warmup=self.is_warmup
             )
             if self.alert_callback and (res.opened_incident_id or res.closed_incident_id or res.old_status != res.new_status):
                 await self.alert_callback(cam, res)
 
-            # Anti-overload pacing: brief breather pause so NVR socket buffers flush
-            await asyncio.sleep(0.03)
+            # Anti-overload pacing: 80ms breather pause so NVR socket buffers flush cleanly
+            await asyncio.sleep(0.08)
 
         return {"host": host, "status": "ONLINE", "latency_ms": nvr_lat, "cameras_checked": len(cams)}
 
@@ -221,8 +230,8 @@ class MonitoringEngine:
         host = camera["ip_address"]
         port = camera["port"] or 554
         nvr_name = camera.get("dvr_nvr_name") or host
-        timeout_ms = int(await self.settings_repo.get("socket_timeout_ms", 3000))
-        timeout_sec = timeout_ms / 1000.0
+        timeout_ms = int(await self.settings_repo.get("socket_timeout_ms", 4500))
+        timeout_sec = max(float(timeout_ms) / 1000.0, 4.5)
 
         # Tier 1 check
         async with self.throttler.acquire(host):
@@ -240,7 +249,7 @@ class MonitoringEngine:
         rtsp_url = camera.get("rtsp_url")
         async with self.throttler.acquire(host):
             if rtsp_url:
-                success, latency_ms, error = await check_rtsp_liveness(rtsp_url, timeout_sec=min(timeout_sec, 2.5))
+                success, latency_ms, error = await check_rtsp_liveness(rtsp_url, timeout_sec=timeout_sec)
             else:
                 success, latency_ms, error = await check_tcp_liveness(host, port, timeout_ms)
 
@@ -263,10 +272,17 @@ class MonitoringEngine:
                 for cam in cameras:
                     bays.setdefault(cam["ip_address"], []).append(cam)
 
-                # Process all bays concurrently (each bay handles its own throttling)
-                tasks = [self.check_nvr_bay(host, bay_cams) for host, bay_cams in bays.items()]
+                # Stagger bays by 500ms to eliminate simultaneous burst across all NVRs
+                tasks = []
+                for host, bay_cams in bays.items():
+                    tasks.append(asyncio.create_task(self.check_nvr_bay(host, bay_cams)))
+                    await asyncio.sleep(0.5)
+
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
+
+                # First full cycle complete - warmup grace ends
+                self.is_warmup = False
 
             except Exception as e:
                 logger.error(f"Error in monitoring loop: {e}")
