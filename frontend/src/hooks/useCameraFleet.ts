@@ -144,6 +144,26 @@ export function useCameraFleet() {
             consecutive_failures: event.consecutive_failures,
           });
         }
+      } else if (event.type === 'NVR_DOWN') {
+        if (event.nvr_name) {
+          setNvrs((prev) =>
+            prev.map((nvr) =>
+              nvr.name.toLowerCase() === event.nvr_name!.toLowerCase()
+                ? { ...nvr, status: 'OFFLINE', last_error: event.error || 'NVR connection unreachable' }
+                : nvr
+            )
+          );
+        }
+      } else if (event.type === 'NVR_RECOVERED') {
+        if (event.nvr_name) {
+          setNvrs((prev) =>
+            prev.map((nvr) =>
+              nvr.name.toLowerCase() === event.nvr_name!.toLowerCase()
+                ? { ...nvr, status: 'ONLINE', last_error: null }
+                : nvr
+            )
+          );
+        }
       }
     },
     [updateCameraInState]

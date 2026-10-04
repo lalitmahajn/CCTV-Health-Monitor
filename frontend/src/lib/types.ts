@@ -22,10 +22,20 @@ export interface Camera {
 }
 
 export interface NvrInfo {
+  id?: number;
   name: string;
   ip_address: string;
   port: number;
   total_channels: number;
+  used_channels?: number;
+  make?: string;
+  model?: string;
+  status?: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+  latency_ms?: number;
+  last_checked?: string | null;
+  last_seen?: string | null;
+  consecutive_failures?: number;
+  last_error?: string | null;
   online_count?: number;
   offline_count?: number;
   no_cam_count?: number;
@@ -64,13 +74,18 @@ export interface FleetSummary {
 }
 
 export interface SSEEventData {
-  type: 'CONNECTED' | 'CAMERA_DOWN' | 'CAMERA_RECOVERED' | 'CAMERA_UPDATE';
+  type: 'CONNECTED' | 'CAMERA_DOWN' | 'CAMERA_RECOVERED' | 'CAMERA_UPDATE' | 'NVR_DOWN' | 'NVR_RECOVERED';
   camera?: Camera;
   camera_id?: number;
   status?: CameraStatus;
   incident?: Incident;
   duration_seconds?: number;
   consecutive_failures?: number;
+  nvr_name?: string;
+  ip_address?: string;
+  error?: string;
+  cameras_affected?: number;
+  timestamp?: string;
 }
 
 export type UptimePeriod = '1h' | '6h' | '24h' | '7d' | '30d' | '90d';

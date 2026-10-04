@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChannelTile } from './ChannelTile';
-import { HardDrive, ChevronDown, ChevronUp } from 'lucide-react';
+import { HardDrive, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Camera, NvrInfo } from '@/lib/types';
 
@@ -59,7 +59,8 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
     return true;
   });
 
-  const isCriticalBay = offlineCount >= 2;
+  const isNvrDown = nvrInfo?.status === 'OFFLINE';
+  const isCriticalBay = isNvrDown || offlineCount >= 2;
 
   return (
     <Card className={cn(
@@ -70,7 +71,10 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
       <CardHeader className="p-3.5 pb-2.5 border-b border-border/40 bg-muted/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-md bg-muted text-muted-foreground">
+            <div className={cn(
+              "p-1.5 rounded-md",
+              isNvrDown ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"
+            )}>
               <HardDrive className="w-4 h-4" />
             </div>
             <div>
@@ -83,6 +87,17 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
                     ({nvrInfo.ip_address}:{nvrInfo.port || 554})
                   </span>
                 )}
+                {isNvrDown ? (
+                  <Badge variant="destructive" className="text-[10px] gap-1 animate-pulse font-normal">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                    Recorder Unreachable
+                  </Badge>
+                ) : nvrInfo?.status === 'ONLINE' ? (
+                  <Badge variant="outline" className="text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 font-normal">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
+                    Recorder Online{nvrInfo.latency_ms ? ` (${Math.round(nvrInfo.latency_ms)}ms)` : ''}
+                  </Badge>
+                ) : null}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                 <span>{cameras.length} Channels</span>
@@ -105,7 +120,7 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {isCriticalBay && (
+            {isCriticalBay && !isNvrDown && (
               <Badge variant="destructive" className="text-[10px]">
                 Critical Bay
               </Badge>
@@ -121,6 +136,19 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
           </div>
         </div>
       </CardHeader>
+
+      {/* NVR Outage Alert Banner */}
+      {isNvrDown && !isCollapsed && (
+        <div className="mx-3 sm:mx-4 mt-3 p-2.5 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <div>
+            <span className="font-semibold">NVR Recorder Outage:</span> Port {nvrInfo?.port || 554} on {nvrInfo?.ip_address} is unreachable. All camera streams on this bay are halted.
+            {nvrInfo?.last_error && (
+              <span className="block text-[11px] opacity-80 mt-0.5 font-mono">Error: {nvrInfo.last_error}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 32-Channel Grid View */}
       {!isCollapsed && (

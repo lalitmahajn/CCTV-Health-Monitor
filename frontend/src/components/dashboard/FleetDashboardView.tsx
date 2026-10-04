@@ -167,7 +167,8 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
 
             const total = bayCams.length;
             const healthPct = total > spare ? Math.round((online / (total - spare)) * 100) : 100;
-            const isCritical = offline >= 2;
+            const isNvrDown = info?.status === 'OFFLINE';
+            const isCritical = isNvrDown || offline >= 2;
 
             return (
               <Card
@@ -183,12 +184,22 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
                       <CardTitle className="text-sm font-semibold tracking-tight">
                         {bayName}
                       </CardTitle>
-                      <CardDescription className="text-xs font-mono mt-0.5">
-                        {info?.ip_address ? `${info.ip_address}:${info.port || 554}` : 'Assigned Rack'}
+                      <CardDescription className="text-xs font-mono mt-0.5 flex items-center gap-1.5">
+                        <span>{info?.ip_address ? `${info.ip_address}:${info.port || 554}` : 'Assigned Rack'}</span>
+                        {isNvrDown ? (
+                          <span className="text-[10px] text-destructive font-sans font-medium">· Recorder Down</span>
+                        ) : info?.status === 'ONLINE' ? (
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-medium">· Online {info.latency_ms ? `(${Math.round(info.latency_ms)}ms)` : ''}</span>
+                        ) : null}
                       </CardDescription>
                     </div>
 
-                    {isCritical ? (
+                    {isNvrDown ? (
+                      <Badge variant="destructive" className="text-[11px] gap-1 font-normal animate-pulse">
+                        <AlertTriangle className="w-3 h-3" />
+                        NVR Outage
+                      </Badge>
+                    ) : isCritical ? (
                       <Badge variant="destructive" className="text-[11px] gap-1 font-normal">
                         <AlertTriangle className="w-3 h-3" />
                         {offline} Down
@@ -203,6 +214,13 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
                 </CardHeader>
 
                 <CardContent className="p-4 pt-0 space-y-3">
+                  {isNvrDown && (
+                    <div className="text-[11px] text-destructive bg-destructive/10 border border-destructive/20 rounded px-2 py-1 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      <span>TCP 554 unreachable. All channels suspended.</span>
+                    </div>
+                  )}
+
                   {/* Channel Breakdown Stats */}
                   <div className="grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="p-2 rounded-md bg-muted/50">
