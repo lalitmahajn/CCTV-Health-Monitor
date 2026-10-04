@@ -30,19 +30,21 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
 
   // Compute status counts for this NVR
   let onlineCount = 0;
+  let warningCount = 0;
   let offlineCount = 0;
   let spareCount = 0;
 
   cameras.forEach((c) => {
     if (c.is_no_cam) spareCount++;
     else if (c.status === 'ONLINE') onlineCount++;
+    else if (c.status === 'WARNING') warningCount++;
     else offlineCount++;
   });
 
   // Filter channels if filter or search active
   const filteredCameras = cameras.filter((cam) => {
     if (filterStatus) {
-      if (filterStatus === 'ONLINE' && (cam.is_no_cam || cam.status !== 'ONLINE')) return false;
+      if (filterStatus === 'ONLINE' && (cam.is_no_cam || (cam.status !== 'ONLINE' && cam.status !== 'WARNING'))) return false;
       if (filterStatus === 'OFFLINE' && (cam.is_no_cam || cam.status !== 'OFFLINE')) return false;
       if (filterStatus === 'NO_CAM' && !cam.is_no_cam) return false;
     }
@@ -103,6 +105,12 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
                 <span>{cameras.length} Channels</span>
                 <span>·</span>
                 <span>{onlineCount} Online</span>
+                {warningCount > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className="text-amber-500 font-medium">{warningCount} Warning</span>
+                  </>
+                )}
                 {offlineCount > 0 && (
                   <>
                     <span>·</span>

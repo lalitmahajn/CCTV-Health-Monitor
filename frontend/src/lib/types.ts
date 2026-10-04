@@ -1,4 +1,4 @@
-export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'NO_CAM';
+export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'WARNING' | 'NO_CAM';
 
 export interface Camera {
   id: number;
@@ -66,6 +66,7 @@ export interface FleetSummary {
   total: number;
   activeTotal: number;
   online: number;
+  warning?: number;
   offline: number;
   noCam: number;
   healthPercent: number;

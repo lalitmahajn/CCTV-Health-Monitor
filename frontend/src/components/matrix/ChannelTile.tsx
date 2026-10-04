@@ -3,6 +3,7 @@ import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/h
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Video, ShieldAlert, Cpu, MapPin, Eye, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Camera } from '@/lib/types';
 
 interface ChannelTileProps {
@@ -18,6 +19,7 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
 }) => {
   const isNoCam = Boolean(camera.is_no_cam);
   const isOnline = !isNoCam && camera.status === 'ONLINE';
+  const isWarning = !isNoCam && camera.status === 'WARNING';
   const isOffline = !isNoCam && camera.status === 'OFFLINE';
 
   const chNum = parseInt(camera.channel_no) || 0;
@@ -30,6 +32,9 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
   if (isOnline) {
     tileBorder = 'border-border/60 bg-card hover:bg-muted/50 hover:border-foreground/20';
     dotColor = 'bg-emerald-500';
+  } else if (isWarning) {
+    tileBorder = 'border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500/70';
+    dotColor = 'bg-amber-500';
   } else if (isOffline) {
     tileBorder = 'border-destructive/60 bg-destructive/10 hover:border-destructive';
     dotColor = 'bg-destructive animate-pulse';
@@ -70,8 +75,11 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
                   <span className="text-[10px] font-mono text-muted-foreground truncate">
                     {camera.ip_address}
                   </span>
-                  {camera.latency_ms !== undefined && camera.latency_ms > 0 && isOnline && (
-                    <span className="text-[10px] font-mono text-emerald-400/80">
+                  {camera.latency_ms !== undefined && camera.latency_ms > 0 && (isOnline || isWarning) && (
+                    <span className={cn(
+                      "text-[10px] font-mono",
+                      isWarning ? "text-amber-500 dark:text-amber-400 font-semibold" : "text-emerald-400/80"
+                    )}>
                       {Math.round(camera.latency_ms)}ms
                     </span>
                   )}
@@ -106,6 +114,11 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
               <Badge variant="outline" className="text-[10px] gap-1 font-normal text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Online
+              </Badge>
+            ) : isWarning ? (
+              <Badge variant="outline" className="text-[10px] gap-1 font-normal text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Warning (High Latency)
               </Badge>
             ) : isOffline ? (
               <Badge variant="destructive" className="text-[10px] font-normal">

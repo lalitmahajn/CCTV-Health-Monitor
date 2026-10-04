@@ -15,12 +15,13 @@ export const SummaryMetrics: React.FC<SummaryMetricsProps> = ({
   onFilterStatus,
   activeFilter,
 }) => {
+  const operationalCount = summary.online + (summary.warning || 0);
   const cards = [
     {
       id: 'TOTAL',
       title: 'Total Channels',
       value: summary.total,
-      subtext: `${summary.online} active · ${summary.noCam} spare slots`,
+      subtext: `${operationalCount} active · ${summary.noCam} spare slots`,
       icon: Video,
       isActive: activeFilter === null || activeFilter === 'ALL',
       filterValue: null,
@@ -29,8 +30,10 @@ export const SummaryMetrics: React.FC<SummaryMetricsProps> = ({
     {
       id: 'ONLINE',
       title: 'Online Operational',
-      value: summary.online,
-      subtext: `${summary.healthPercent}% operational health`,
+      value: operationalCount,
+      subtext: summary.warning && summary.warning > 0
+        ? `${summary.online} optimal · ${summary.warning} high latency`
+        : `${summary.healthPercent}% operational health`,
       icon: CheckCircle2,
       isActive: activeFilter === 'ONLINE',
       filterValue: 'ONLINE',

@@ -156,17 +156,20 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
             const info = nvrMap.get(bayName);
 
             let online = 0;
+            let warning = 0;
             let offline = 0;
             let spare = 0;
 
             bayCams.forEach((c) => {
               if (c.is_no_cam) spare++;
               else if (c.status === 'ONLINE') online++;
+              else if (c.status === 'WARNING') warning++;
               else offline++;
             });
 
             const total = bayCams.length;
-            const healthPct = total > spare ? Math.round((online / (total - spare)) * 100) : 100;
+            const operating = online + warning;
+            const healthPct = total > spare ? Math.round((operating / (total - spare)) * 100) : 100;
             const isNvrDown = info?.status === 'OFFLINE';
             const isCritical = isNvrDown || offline >= 2;
 
@@ -227,6 +230,11 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
                       <span className="text-muted-foreground block text-[10px]">Online</span>
                       <span className="font-semibold text-foreground mt-0.5 block">
                         {online}
+                        {warning > 0 && (
+                          <span className="text-amber-500 font-normal text-[10px] ml-1" title={`${warning} high latency`}>
+                            +{warning}w
+                          </span>
+                        )}
                       </span>
                     </div>
 
@@ -253,7 +261,7 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
                     <div className="flex justify-between text-[11px] text-muted-foreground">
                       <span>Allocation</span>
                       <span className="font-mono">
-                        {online} / {total - spare} ({healthPct}%)
+                        {operating} / {total - spare} ({healthPct}%)
                       </span>
                     </div>
                     <Progress value={healthPct} className="h-1.5" />
