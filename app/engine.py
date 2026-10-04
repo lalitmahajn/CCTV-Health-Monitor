@@ -2,8 +2,8 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
-from app.models import CameraRepository, IncidentRepository, SettingsRepository
-from app.scanner import check_tcp_liveness, HostThrottler, grab_rtsp_snapshot
+from app.models import CameraRepository, IncidentRepository, SettingsRepository, NvrRepository
+from app.scanner import check_tcp_liveness, check_rtsp_liveness, HostThrottler, grab_rtsp_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -111,13 +111,16 @@ class StateMachine:
 
 class MonitoringEngine:
     """
-    Background orchestrator executing fast liveness scans and staggered frame snapshots.
+    Two-Tier Hierarchical Background Orchestrator:
+    - Tier 1: Recorder / NVR Hardware TCP Liveness (short-circuits dead NVRs)
+    - Tier 2: Per-channel lightweight RTSP DESCRIBE probes (with strict anti-overload pacing)
     """
     def __init__(self, db_path: str = None, alert_callback = None):
         self.db_path = db_path
         self.camera_repo = CameraRepository(db_path)
         self.incident_repo = IncidentRepository(db_path)
         self.settings_repo = SettingsRepository(db_path)
+        self.nvr_repo = NvrRepository(db_path)
         self.state_machine = StateMachine(self.camera_repo, self.incident_repo, self.settings_repo)
         self.alert_callback = alert_callback
         self.throttler = HostThrottler(max_per_host=2)
@@ -137,6 +140,79 @@ class MonitoringEngine:
             except asyncio.CancelledError:
                 pass
 
+    async def check_nvr_bay(self, host: str, cams: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Two-Tier health check for a recorder/NVR bay:
+        1. Tier 1: Ping the host NVR. If unreachable, short-circuits all child channels.
+        2. Tier 2: If NVR is healthy, probes each channel via lightweight RTSP DESCRIBE.
+        """
+        if not cams:
+            return {"host": host, "status": "EMPTY", "cameras": 0}
+
+        port = int(cams[0].get("port") or 554)
+        nvr_name = cams[0].get("dvr_nvr_name") or host
+        timeout_ms = int(await self.settings_repo.get("socket_timeout_ms", 3000))
+        timeout_sec = timeout_ms / 1000.0
+
+        # Tier 1: NVR / Recorder Hardware Liveness (TCP Ping)
+        async with self.throttler.acquire(host):
+            nvr_alive, nvr_lat, nvr_err = await check_tcp_liveness(host, port, timeout_ms)
+
+        # Update NVR database record
+        if nvr_alive:
+            await self.nvr_repo.update_status(
+                name=nvr_name,
+                status="ONLINE",
+                latency_ms=nvr_lat,
+                consecutive_failures=0,
+                last_error=None
+            )
+        else:
+            await self.nvr_repo.update_status(
+                name=nvr_name,
+                status="OFFLINE",
+                latency_ms=0.0,
+                consecutive_failures=1,
+                last_error=f"ConnectionRefused: Host unreachable ({nvr_err})"
+            )
+
+        # Short-circuit if Tier 1 failed
+        if not nvr_alive:
+            error_reason = f"NVR_OFFLINE: Recorder {nvr_name} ({host}) unreachable"
+            for cam in cams:
+                res = await self.state_machine.process_check_result(
+                    camera_id=cam["id"],
+                    success=False,
+                    latency_ms=0.0,
+                    error=error_reason
+                )
+                if self.alert_callback and (res.opened_incident_id or res.closed_incident_id or res.old_status != res.new_status):
+                    await self.alert_callback(cam, res)
+            return {"host": host, "status": "OFFLINE", "latency_ms": 0.0, "cameras_offline": len(cams)}
+
+        # Tier 2: Channel Level RTSP DESCRIBE Probing (for online NVRs)
+        for cam in cams:
+            rtsp_url = cam.get("rtsp_url")
+            async with self.throttler.acquire(host):
+                if rtsp_url:
+                    cam_success, cam_lat, cam_err = await check_rtsp_liveness(rtsp_url, timeout_sec=min(timeout_sec, 2.5))
+                else:
+                    cam_success, cam_lat, cam_err = await check_tcp_liveness(host, port, timeout_ms)
+
+            res = await self.state_machine.process_check_result(
+                camera_id=cam["id"],
+                success=cam_success,
+                latency_ms=cam_lat,
+                error=cam_err
+            )
+            if self.alert_callback and (res.opened_incident_id or res.closed_incident_id or res.old_status != res.new_status):
+                await self.alert_callback(cam, res)
+
+            # Anti-overload pacing: brief breather pause so NVR socket buffers flush
+            await asyncio.sleep(0.03)
+
+        return {"host": host, "status": "ONLINE", "latency_ms": nvr_lat, "cameras_checked": len(cams)}
+
     async def check_single_camera(self, camera_id: int) -> TransitionResult:
         camera = await self.camera_repo.get_by_id(camera_id)
         if not camera:
@@ -144,10 +220,29 @@ class MonitoringEngine:
 
         host = camera["ip_address"]
         port = camera["port"] or 554
+        nvr_name = camera.get("dvr_nvr_name") or host
         timeout_ms = int(await self.settings_repo.get("socket_timeout_ms", 3000))
+        timeout_sec = timeout_ms / 1000.0
 
+        # Tier 1 check
         async with self.throttler.acquire(host):
-            success, latency_ms, error = await check_tcp_liveness(host, port, timeout_ms)
+            nvr_alive, nvr_lat, nvr_err = await check_tcp_liveness(host, port, timeout_ms)
+
+        if not nvr_alive:
+            res = await self.state_machine.process_check_result(
+                camera_id, success=False, latency_ms=0.0, error=f"NVR_OFFLINE: Recorder {nvr_name} ({host}) unreachable"
+            )
+            if self.alert_callback and (res.opened_incident_id or res.closed_incident_id or res.old_status != res.new_status):
+                await self.alert_callback(camera, res)
+            return res
+
+        # Tier 2 check
+        rtsp_url = camera.get("rtsp_url")
+        async with self.throttler.acquire(host):
+            if rtsp_url:
+                success, latency_ms, error = await check_rtsp_liveness(rtsp_url, timeout_sec=min(timeout_sec, 2.5))
+            else:
+                success, latency_ms, error = await check_tcp_liveness(host, port, timeout_ms)
 
         res = await self.state_machine.process_check_result(
             camera_id, success, latency_ms, error
@@ -162,13 +257,19 @@ class MonitoringEngine:
                 interval = int(await self.settings_repo.get("ping_interval_seconds", 30))
                 all_cams = await self.camera_repo.get_all(enabled_only=True)
                 cameras = [cam for cam in all_cams if not cam.get("is_no_cam")]
-                
-                # Run checks across cameras concurrently with per-host throttler
-                tasks = [self.check_single_camera(cam["id"]) for cam in cameras]
+
+                # Group cameras by recorder host IP
+                bays: Dict[str, List[Dict[str, Any]]] = {}
+                for cam in cameras:
+                    bays.setdefault(cam["ip_address"], []).append(cam)
+
+                # Process all bays concurrently (each bay handles its own throttling)
+                tasks = [self.check_nvr_bay(host, bay_cams) for host, bay_cams in bays.items()]
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
-                    
+
             except Exception as e:
                 logger.error(f"Error in monitoring loop: {e}")
 
             await asyncio.sleep(interval)
+
