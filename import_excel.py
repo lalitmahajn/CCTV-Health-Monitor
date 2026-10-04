@@ -153,7 +153,7 @@ async def import_real_cameras():
             ch_int = 1
 
         ch_formatted = f"{ch_int:02d}"
-        cam_name = f"{loc_str} (Ch {ch_formatted})"
+        cam_name = loc_str
         
         # Build local RTSP URL using Dahua/CP-Plus standard API
         rtsp_url = f"rtsp://arechs_cctv:scpl@2026@{nvr_info['ip']}:{nvr_info['port']}/cam/realmonitor?channel={ch_int}&subtype=0"

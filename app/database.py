@@ -49,6 +49,18 @@ async def init_db(db_path: str = None):
         except Exception:
             pass
 
+        # Migration: normalize legacy bracketed channel numbers in camera names (e.g. "Reception (Ch 01)" -> "Reception")
+        try:
+            await db.execute("""
+                UPDATE cameras
+                SET name = location
+                WHERE location IS NOT NULL 
+                  AND TRIM(location) != ''
+                  AND name LIKE '%(Ch %)'
+            """)
+        except Exception:
+            pass
+
         # NVR Metadata table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS nvrs (
