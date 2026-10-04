@@ -50,37 +50,54 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
           onClick={() => onSelect(camera)}
           className={`relative group flex flex-col justify-between p-2 rounded-md border text-left transition-all duration-150 cursor-pointer h-[76px] w-full overflow-hidden ${tileBorder}`}
         >
-          {/* Top row: Channel number & status dot */}
+          {/* Top row: Channel number, latency & status dot */}
           <div className="flex items-center justify-between w-full">
             <span className="font-mono text-xs font-bold tracking-tight text-foreground/90">
               CH-{displayChannel}
             </span>
-            <div className="flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${dotColor} ${isOnline ? 'animate-pulse' : ''}`} />
+            <div className="flex items-center gap-1.5">
+              {camera.latency_ms !== undefined && camera.latency_ms > 0 && (isOnline || isWarning) && (
+                <span className={cn(
+                  "text-[10px] font-mono",
+                  isWarning ? "text-amber-500 dark:text-amber-400 font-semibold" : "text-emerald-500/90 dark:text-emerald-400/90"
+                )}>
+                  {Math.round(camera.latency_ms)}ms
+                </span>
+              )}
+              <span className={cn("w-2 h-2 rounded-full", dotColor, isOnline && "animate-pulse")} />
             </div>
           </div>
 
-          {/* Bottom row: Camera label or spare indication */}
-          <div className="w-full">
+          {/* Bottom area: Camera Name & Location (No duplicate IP) */}
+          <div className="w-full mt-auto">
             {isNoCam ? (
-              <span className="text-[11px] font-mono text-muted-foreground/70 uppercase">
+              <span className="text-[11px] font-mono text-muted-foreground/60 uppercase">
                 Spare Port
               </span>
             ) : (
               <>
-                <p className="text-[11px] font-medium text-foreground truncate leading-tight group-hover:text-primary transition-colors">
+                <p 
+                  className="text-[11px] font-medium text-foreground truncate leading-tight group-hover:text-primary transition-colors"
+                  title={camera.name}
+                >
                   {camera.name}
                 </p>
-                <div className="flex items-center justify-between mt-0.5">
-                  <span className="text-[10px] font-mono text-muted-foreground truncate">
-                    {camera.ip_address}
-                  </span>
-                  {camera.latency_ms !== undefined && camera.latency_ms > 0 && (isOnline || isWarning) && (
-                    <span className={cn(
-                      "text-[10px] font-mono",
-                      isWarning ? "text-amber-500 dark:text-amber-400 font-semibold" : "text-emerald-400/80"
-                    )}>
-                      {Math.round(camera.latency_ms)}ms
+                <div className="mt-0.5">
+                  {isOffline ? (
+                    <span className="text-[10px] text-destructive font-medium truncate block">
+                      {camera.last_error?.includes('TIMEOUT') ? 'RTSP Timeout' : (camera.last_error?.slice(0, 20) || 'Stream Down')}
+                    </span>
+                  ) : isWarning ? (
+                    <span className="text-[10px] text-amber-500/90 font-medium truncate block">
+                      High Latency
+                    </span>
+                  ) : camera.location && camera.location.toLowerCase() !== camera.name.toLowerCase() ? (
+                    <span className="text-[10px] text-muted-foreground truncate block">
+                      {camera.location}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground/60 font-mono truncate block">
+                      Stream Active
                     </span>
                   )}
                 </div>
