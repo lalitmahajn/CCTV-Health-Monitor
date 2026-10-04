@@ -42,10 +42,12 @@ export const IncidentCommandView: React.FC<IncidentCommandViewProps> = ({
   const filteredList = currentList.filter((inc) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
+    const cam = cameraMap.get(inc.camera_id);
     const nameMatch = inc.camera_name.toLowerCase().includes(q);
+    const aliasMatch = Boolean(cam?.alias && cam.alias.toLowerCase().includes(q));
     const nvrMatch = (inc.dvr_nvr_name || '').toLowerCase().includes(q);
     const reasonMatch = (inc.error_reason || '').toLowerCase().includes(q);
-    return nameMatch || nvrMatch || reasonMatch;
+    return nameMatch || aliasMatch || nvrMatch || reasonMatch;
   });
 
   const formatDuration = (seconds?: number | null, startedAt?: string) => {
@@ -172,8 +174,13 @@ export const IncidentCommandView: React.FC<IncidentCommandViewProps> = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-foreground text-sm">
-                            {incident.camera_name}
+                            {cameraMap.get(incident.camera_id)?.alias || incident.camera_name}
                           </span>
+                          {cameraMap.get(incident.camera_id)?.alias && (
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              (HW: {incident.camera_name})
+                            </span>
+                          )}
                           <span className="text-xs font-mono text-muted-foreground">
                             [{incident.dvr_nvr_name || 'NVR'} • CH-{incident.channel_no || '--'}]
                           </span>

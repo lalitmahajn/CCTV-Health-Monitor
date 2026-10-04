@@ -3,7 +3,7 @@ import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/h
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Video, ShieldAlert, Cpu, MapPin, Eye, Zap } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getCameraDisplayName } from '@/lib/utils';
 import type { Camera } from '@/lib/types';
 
 interface ChannelTileProps {
@@ -43,9 +43,10 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
     dotColor = 'bg-muted-foreground/30';
   }
 
+  const displayName = getCameraDisplayName(camera);
   const isLocationRedundant = !camera.location ||
-    camera.name.toLowerCase().includes(camera.location.toLowerCase()) ||
-    camera.location.toLowerCase().includes(camera.name.toLowerCase());
+    displayName.toLowerCase().includes(camera.location.toLowerCase()) ||
+    camera.location.toLowerCase().includes(displayName.toLowerCase());
 
   return (
     <HoverCard openDelay={200} closeDelay={150}>
@@ -82,9 +83,9 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
               <>
                 <p 
                   className="text-xs font-semibold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors"
-                  title={camera.name}
+                  title={camera.alias ? `${camera.alias} (HW: ${camera.name})` : camera.name}
                 >
-                  {camera.name}
+                  {displayName}
                 </p>
                 {isOffline ? (
                   <span className="text-[10px] text-destructive font-medium truncate block">
@@ -122,8 +123,13 @@ export const ChannelTile: React.FC<ChannelTileProps> = ({
                 <span className="text-xs text-muted-foreground">• {camera.dvr_nvr_name || 'NVR'}</span>
               </div>
               <h4 className="text-xs font-semibold text-foreground truncate max-w-[180px]">
-                {camera.name}
+                {displayName}
               </h4>
+              {camera.alias && (
+                <span className="text-[10px] font-mono text-muted-foreground block truncate max-w-[180px]">
+                  HW: {camera.name}
+                </span>
+              )}
             </div>
             {isOnline ? (
               <Badge variant="outline" className="text-[10px] gap-1 font-normal text-muted-foreground">

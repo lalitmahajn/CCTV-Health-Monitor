@@ -22,7 +22,7 @@ import {
   SunMedium,
   Activity,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getCameraDisplayName } from '@/lib/utils';
 import type { Camera } from '@/lib/types';
 import * as api from '@/lib/api';
 import { useTimeFormat, formatTime } from '@/lib/timeUtils';
@@ -63,6 +63,7 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
 
   const chNum = parseInt(camera.channel_no) || 0;
   const displayChannel = chNum > 0 ? String(chNum).padStart(2, '0') : camera.channel_no || '--';
+  const displayName = getCameraDisplayName(camera);
 
   const handleTestPing = async () => {
     try {
@@ -201,8 +202,14 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
             </div>
 
             <SheetTitle className="text-xl font-bold tracking-tight text-foreground text-left pt-1">
-              {camera.name}
+              {displayName}
             </SheetTitle>
+            {camera.alias && (
+              <div className="text-xs font-mono text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                <span className="opacity-70">Hardware:</span>
+                <span>{camera.name}</span>
+              </div>
+            )}
 
             <SheetDescription className="text-left text-xs text-muted-foreground flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -216,7 +223,7 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
               {currentThumbnail ? (
                 <img
                   src={currentThumbnail}
-                  alt={camera.name}
+                  alt={displayName}
                   className="w-full h-full object-cover"
                 />
               ) : isOffline ? (
@@ -302,6 +309,16 @@ export const CameraDrawer: React.FC<CameraDrawerProps> = ({
 
             <CardContent className="p-3.5 pt-0 space-y-3">
               <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">System Name (NVR)</span>
+                  <span className="font-mono font-medium text-foreground truncate block">{camera.name}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Custom Alias</span>
+                  <span className="font-medium text-foreground truncate block">
+                    {camera.alias || 'None (Using Default)'}
+                  </span>
+                </div>
                 <div>
                   <span className="text-[11px] text-muted-foreground block">IP Address</span>
                   <span className="font-mono font-medium text-foreground">{camera.ip_address}</span>

@@ -51,7 +51,7 @@ export const RackMatrixBay: React.FC<RackMatrixBayProps> = ({
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchName = cam.name.toLowerCase().includes(q);
+      const matchName = cam.name.toLowerCase().includes(q) || (Boolean(cam.alias) && cam.alias!.toLowerCase().includes(q));
       const matchIp = cam.ip_address.toLowerCase().includes(q);
       const matchLoc = (cam.location || '').toLowerCase().includes(q);
       const matchCh = String(cam.channel_no || '').toLowerCase().includes(q);
