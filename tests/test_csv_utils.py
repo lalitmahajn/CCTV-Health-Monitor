@@ -9,14 +9,14 @@ from app.csv_utils import (
 
 def test_csv_template_and_parsing():
     template = generate_csv_template()
-    assert "name,dvr_nvr_name,location,ip_address,port,channel_no,rtsp_url,is_enabled,is_spare" in template
+    assert "name,alias,dvr_nvr_name,location,ip_address,port,channel_no,rtsp_url,is_enabled,is_spare" in template
     assert "rtsp://admin:*****@" in template
     
     sample_csv = (
-        "name,dvr_nvr_name,location,ip_address,port,channel_no,rtsp_url,is_enabled,is_spare\n"
-        "Cam 1,NVR-A,Gate,192.168.1.10,554,1,rtsp://admin:*****@192.168.1.10:554/ch1,true,false\n"
-        "Spare 2,NVR-A,Spare,192.168.1.10,554,2,rtsp://operator:*****@192.168.1.10:554/ch2,true,true\n"
-        "Cam 3,NVR-A,Lobby,192.168.1.10,554,3,,true,false\n"  # missing rtsp_url
+        "name,alias,dvr_nvr_name,location,ip_address,port,channel_no,rtsp_url,is_enabled,is_spare\n"
+        "Cam 1,Main Entry Gate,NVR-A,Gate,192.168.1.10,554,1,rtsp://admin:*****@192.168.1.10:554/ch1,true,false\n"
+        "Spare 2,,NVR-A,Spare,192.168.1.10,554,2,rtsp://operator:*****@192.168.1.10:554/ch2,true,true\n"
+        "Cam 3,Lobby Cam,NVR-A,Lobby,192.168.1.10,554,3,,true,false\n"  # missing rtsp_url
     )
     # When password is provided, masked passwords are replaced
     valid_rows, errors = parse_and_validate_csv(sample_csv, default_password="secret_password")
@@ -24,9 +24,11 @@ def test_csv_template_and_parsing():
     assert len(errors) == 1
     assert "Row 4: 'rtsp_url' is required" in errors[0]
     assert valid_rows[0]["name"] == "Cam 1"
+    assert valid_rows[0]["alias"] == "Main Entry Gate"
     assert valid_rows[0]["is_no_cam"] is False
     assert valid_rows[0]["rtsp_url"] == "rtsp://admin:secret_password@192.168.1.10:554/ch1"
     assert valid_rows[1]["name"] == "Spare 2"
+    assert valid_rows[1]["alias"] is None
     assert valid_rows[1]["is_no_cam"] is True
     assert valid_rows[1]["rtsp_url"] == "rtsp://operator:secret_password@192.168.1.10:554/ch2"
 

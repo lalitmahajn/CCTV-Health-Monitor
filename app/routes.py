@@ -314,6 +314,7 @@ def setup_routes(app):
         client_ip = request.client.host if request.client else "127.0.0.1"
         cam_id = await cam_repo.create(
             name=payload.name,
+            alias=payload.alias,
             dvr_nvr_name=payload.dvr_nvr_name or "",
             location=payload.location or "",
             ip_address=payload.ip_address,
@@ -783,7 +784,8 @@ def setup_routes(app):
                 channel_no=r["channel_no"],
                 rtsp_url=r["rtsp_url"],
                 is_enabled=r["is_enabled"],
-                is_no_cam=is_no_cam
+                is_no_cam=is_no_cam,
+                alias=r.get("alias")
             )
             if is_no_cam:
                 await cam_repo.update_status(cam_id, status="NO_CAM", consecutive_failures=0)

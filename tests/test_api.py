@@ -114,6 +114,61 @@ async def test_api_camera_endpoints(tmp_path):
             assert "label" in latest_point
 
 
+@pytest.mark.asyncio
+async def test_update_camera_alias_and_reset(tmp_path):
+    test_db = str(tmp_path / "test_api_alias.db")
+    from app.database import init_db
+    await init_db(test_db)
+    app = create_app(db_path=test_db)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Authenticate
+        await client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+
+        # Create camera with alias
+        res = await client.post("/api/cameras", json={
+            "name": "D4C1-RECEPTION",
+            "alias": "Main Reception Desk",
+            "dvr_nvr_name": "NVR-01",
+            "ip_address": "192.168.0.245",
+            "port": 554,
+            "channel_no": "1",
+            "rtsp_url": "rtsp://admin:pass@192.168.0.245:554/ch1"
+        })
+        assert res.status_code == 201
+        cam_id = res.json()["id"]
+
+        # Verify alias returned in list
+        get_res = await client.get("/api/cameras")
+        assert get_res.status_code == 200
+        cam = next(c for c in get_res.json() if c["id"] == cam_id)
+        assert cam["name"] == "D4C1-RECEPTION"
+        assert cam["alias"] == "Main Reception Desk"
+
+        # Update alias to a new name
+        put_res = await client.put(f"/api/cameras/{cam_id}", json={
+            "alias": "Front Lobby Area"
+        })
+        assert put_res.status_code == 200
+
+        get_res2 = await client.get("/api/cameras")
+        cam2 = next(c for c in get_res2.json() if c["id"] == cam_id)
+        assert cam2["alias"] == "Front Lobby Area"
+
+        # Reset alias (Use default or system name) by passing empty string
+        put_reset = await client.put(f"/api/cameras/{cam_id}", json={
+            "alias": ""
+        })
+        assert put_reset.status_code == 200
+
+        get_res3 = await client.get("/api/cameras")
+        cam3 = next(c for c in get_res3.json() if c["id"] == cam_id)
+        assert cam3["name"] == "D4C1-RECEPTION"
+        assert cam3["alias"] is None
+
+
+
 
 
 

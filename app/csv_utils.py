@@ -5,6 +5,7 @@ from typing import Tuple, List, Dict, Any, Optional
 
 CSV_HEADERS = [
     "name",
+    "alias",
     "dvr_nvr_name",
     "location",
     "ip_address",
@@ -25,6 +26,7 @@ def generate_csv_template() -> str:
     writer.writerow(CSV_HEADERS)
     writer.writerow([
         "Entrance Gate Cam",
+        "Front Gate Main Entry",
         "NVR-Building-A",
         "Main Gate",
         "192.168.1.50",
@@ -199,8 +201,13 @@ def parse_and_validate_csv(
         ).lower()
         is_no_cam = spare_val in ("true", "1", "yes", "t", "y")
 
+        # Alias
+        alias_raw = norm_row.get("alias", "").strip()
+        alias = alias_raw if alias_raw else None
+
         valid_rows.append({
             "name": name,
+            "alias": alias,
             "dvr_nvr_name": dvr_nvr_name,
             "location": location,
             "ip_address": ip_address,
@@ -230,6 +237,7 @@ def export_cameras_to_csv(cameras: List[Dict[str, Any]]) -> str:
         is_spare = bool(cam.get("is_no_cam"))
         writer.writerow([
             cam.get("name", ""),
+            cam.get("alias") or "",
             cam.get("dvr_nvr_name", ""),
             cam.get("location", ""),
             cam.get("ip_address", ""),

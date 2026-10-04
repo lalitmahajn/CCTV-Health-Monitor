@@ -90,7 +90,7 @@ def generate_excel_export(cameras: List[Dict[str, Any]], nvrs: Optional[List[Dic
 
     # Title Banner (Row 1)
     ws_cams.row_dimensions[1].height = 36
-    ws_cams.merge_cells("A1:L1")
+    ws_cams.merge_cells("A1:M1")
     title_cell = ws_cams["A1"]
     title_cell.value = "CCTV FLEET INVENTORY & REAL-TIME HEALTH REPORT"
     title_cell.font = font_title
@@ -100,7 +100,7 @@ def generate_excel_export(cameras: List[Dict[str, Any]], nvrs: Optional[List[Dic
     # Subtitle / Metadata Banner (Row 2)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     ws_cams.row_dimensions[2].height = 22
-    ws_cams.merge_cells("A2:L2")
+    ws_cams.merge_cells("A2:M2")
     sub_cell = ws_cams["A2"]
     sub_cell.value = (
         f"Generated: {now_str}  |  Total Channels: {total_cams}  |  "
@@ -118,7 +118,8 @@ def generate_excel_export(cameras: List[Dict[str, Any]], nvrs: Optional[List[Dic
     ws_cams.row_dimensions[4].height = 28
     headers = [
         ("ID", align_center),
-        ("Camera Name", align_left),
+        ("Camera Name (System)", align_left),
+        ("Custom Alias", align_left),
         ("DVR / NVR Recorder", align_left),
         ("Ch #", align_center),
         ("Physical Location", align_left),
@@ -156,6 +157,7 @@ def generate_excel_export(cameras: List[Dict[str, Any]], nvrs: Optional[List[Dic
         row_values = [
             (cam.get("id"), font_data_mono, align_center),
             (cam.get("name", "Unnamed"), font_data_bold if not is_nocam else font_data, align_left),
+            (cam.get("alias") or "-", font_data, align_left),
             (cam.get("dvr_nvr_name", "N/A"), font_data, align_left),
             (cam.get("channel_no", "-"), font_data_mono, align_center),
             (cam.get("location", "N/A"), font_data, align_left),
