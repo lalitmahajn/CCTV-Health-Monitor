@@ -650,16 +650,16 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Cpu className="w-4 h-4 text-primary" />
-                  Core Scanning Engine Timing & Probing
+                  Two-Tier Health Engine Timing & Probing
                 </CardTitle>
                 <CardDescription>
-                  Configure background polling cadence, TCP timeout limits, and failure thresholds.
+                  Configure background polling cadence, RTSP stream handshake limits, and failure thresholds.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold">TCP Ping Interval (seconds)</label>
+                    <label className="text-xs font-semibold">Fleet Scan Interval (seconds)</label>
                     <Input
                       type="number"
                       value={settings.ping_interval_seconds || settings.scan_interval || '30'}
@@ -668,50 +668,50 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                       min="5"
                       max="300"
                     />
-                    <p className="text-[11px] text-muted-foreground">Cycle frequency for TCP liveness probe.</p>
+                    <p className="text-[11px] text-muted-foreground">Rest period between complete fleet monitoring cycles.</p>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold">Socket Timeout (ms)</label>
+                    <label className="text-xs font-semibold">RTSP Handshake Timeout (ms)</label>
                     <Input
                       type="number"
-                      value={settings.socket_timeout_ms || '3000'}
+                      value={settings.socket_timeout_ms || '4500'}
                       onChange={(e) => setSettings({ ...settings, socket_timeout_ms: e.target.value })}
                       disabled={isSettingsLoading}
                       min="500"
                       max="10000"
                     />
-                    <p className="text-[11px] text-muted-foreground">Maximum wait time for SYN/ACK packet.</p>
+                    <p className="text-[11px] text-muted-foreground">Max wait time for RTSP DESCRIBE response and NVR connection.</p>
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold">Consecutive Failure Threshold</label>
                     <Input
                       type="number"
-                      value={settings.failure_threshold || '2'}
+                      value={settings.failure_threshold || '3'}
                       onChange={(e) => setSettings({ ...settings, failure_threshold: e.target.value })}
                       disabled={isSettingsLoading}
                       min="1"
                       max="10"
                     />
-                    <p className="text-[11px] text-muted-foreground">Consecutive failures before declaring OFFLINE outage.</p>
+                    <p className="text-[11px] text-muted-foreground">Consecutive failed check cycles before declaring an OFFLINE incident.</p>
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold">Latency Warning Threshold (ms)</label>
                     <Input
                       type="number"
-                      value={settings.latency_warning_threshold_ms || '1500'}
+                      value={settings.latency_warning_threshold_ms || '2500'}
                       onChange={(e) => setSettings({ ...settings, latency_warning_threshold_ms: e.target.value })}
                       disabled={isSettingsLoading}
                       min="100"
                       max="5000"
                     />
-                    <p className="text-[11px] text-muted-foreground">Latency threshold for WARNING status mark.</p>
+                    <p className="text-[11px] text-muted-foreground">Response time threshold for marking stream as amber WARNING.</p>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold">Max Concurrency per Host</label>
+                    <label className="text-xs font-semibold">Max Concurrency per NVR</label>
                     <Input
                       type="number"
                       value={settings.max_concurrency_per_host || '2'}
@@ -720,7 +720,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                       min="1"
                       max="8"
                     />
-                    <p className="text-[11px] text-muted-foreground">Throttles simultaneous RTSP probes to a single physical NVR.</p>
+                    <p className="text-[11px] text-muted-foreground">Throttles simultaneous RTSP probes per recorder to protect NVR CPU.</p>
                   </div>
 
                   <div className="space-y-1.5">
@@ -733,7 +733,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onFleetReload })
                       min="60"
                       max="3600"
                     />
-                    <p className="text-[11px] text-muted-foreground">Automated background grab is manual / on-demand to conserve CPU & bandwidth. Use 'Update All Snapshots' in Fleet Operations.</p>
+                    <p className="text-[11px] text-muted-foreground">Automated background grab interval. Use 'Update All Snapshots' in Fleet Operations.</p>
                   </div>
                 </div>
               </CardContent>

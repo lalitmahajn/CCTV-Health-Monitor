@@ -65,6 +65,7 @@ async def init_db(db_path: str = None):
         try:
             await db.execute("UPDATE settings SET value = '3' WHERE key = 'failure_threshold' AND value = '2'")
             await db.execute("UPDATE settings SET value = '4500' WHERE key = 'socket_timeout_ms' AND value = '3000'")
+            await db.execute("UPDATE settings SET value = '2500' WHERE key = 'latency_warning_threshold_ms' AND value = '1500'")
         except Exception:
             pass
 
@@ -129,7 +130,7 @@ async def init_db(db_path: str = None):
             ("snapshot_interval_seconds", "600", "Frame grab interval in seconds"),
             ("failure_threshold", "3", "Consecutive failures before marking OFFLINE"),
             ("socket_timeout_ms", "4500", "TCP socket connection timeout in ms"),
-            ("latency_warning_threshold_ms", "1500", "Latency threshold for WARNING status in ms"),
+            ("latency_warning_threshold_ms", "2500", "Latency threshold for WARNING status in ms"),
             ("enable_black_screen_detection", "false", "Check if grabbed frame is completely black"),
             ("enable_frozen_frame_detection", "false", "Check if consecutive frames are identical"),
             ("max_concurrency_per_host", "2", "Max concurrent stream requests per physical NVR IP"),
