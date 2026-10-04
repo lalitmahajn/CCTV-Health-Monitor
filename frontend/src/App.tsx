@@ -92,6 +92,7 @@ const MainFleetApp: React.FC = () => {
                   if (nvrName) setSelectedNvrFilter(nvrName);
                   setActiveTab('matrix');
                 }}
+                onNavigateToIncidents={() => setActiveTab('incidents')}
               />
             )}
 

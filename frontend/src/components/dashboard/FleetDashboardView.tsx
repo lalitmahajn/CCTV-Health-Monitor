@@ -26,6 +26,7 @@ interface FleetDashboardViewProps {
   onSelectCamera: (camera: Camera) => void;
   onAcknowledgeIncident: (incidentId: number) => Promise<void>;
   onNavigateToMatrix: (nvrName?: string) => void;
+  onNavigateToIncidents?: () => void;
 }
 
 export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
@@ -34,9 +35,10 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
   nvrGroups,
   summary,
   activeIncidents,
-  onSelectCamera,
-  onAcknowledgeIncident,
+  onSelectCamera: _onSelectCamera,
+  onAcknowledgeIncident: _onAcknowledgeIncident,
   onNavigateToMatrix,
+  onNavigateToIncidents,
 }) => {
   const nvrMap = new Map<string, NvrInfo>(nvrs.map((n) => [n.name, n]));
   const groupKeys = Object.keys(nvrGroups).sort((a, b) =>
@@ -67,9 +69,7 @@ export const FleetDashboardView: React.FC<FleetDashboardViewProps> = ({
       {/* 1. Critical Outage Alerts Banner (Shown only when cameras drop) */}
       <CriticalOutageBanner
         activeIncidents={activeIncidents}
-        onAcknowledge={onAcknowledgeIncident}
-        onInspectCamera={onSelectCamera}
-        cameras={cameras}
+        onNavigateToIncidents={onNavigateToIncidents}
       />
 
       {/* 2. Official Shadcn Page Header */}
