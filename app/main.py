@@ -10,16 +10,10 @@ from app.database import init_db
 from app.engine import MonitoringEngine
 from app.alerts import AlertManager, WebAlertNotifier, EmailAlertNotifier, TelegramAlertNotifier
 from app.routes import setup_routes
+from app.paths import get_db_path, get_data_dir, get_snapshots_dir
 
 def create_app(db_path: str = None) -> FastAPI:
-    if not db_path:
-        if getattr(sys, "frozen", False):
-            exe_dir = os.path.dirname(sys.executable)
-            app_db = os.environ.get("CCTV_DB_PATH", os.path.join(exe_dir, "cctv_monitor.db"))
-        else:
-            app_db = os.environ.get("CCTV_DB_PATH", "cctv_monitor.db")
-    else:
-        app_db = db_path
+    app_db = db_path or get_db_path()
     
     alert_manager = AlertManager()
     web_notifier = WebAlertNotifier()
@@ -92,15 +86,19 @@ def create_app(db_path: str = None) -> FastAPI:
         )
 
     # Static files and frontend SPA mounting
+    data_dir = get_data_dir()
+    static_dir = os.path.join(data_dir, "static")
+    snapshots_dir = get_snapshots_dir()
+    os.makedirs(static_dir, exist_ok=True)
+    os.makedirs(snapshots_dir, exist_ok=True)
+
     if getattr(sys, "frozen", False):
         exe_dir = os.path.dirname(sys.executable)
         bundle_dir = getattr(sys, "_MEIPASS", os.path.join(exe_dir, "_internal"))
         frontend_dist = os.path.join(bundle_dir, "frontend", "dist")
-        static_dir = os.path.join(exe_dir, "static")
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         frontend_dist = os.path.join(base_dir, "frontend", "dist")
-        static_dir = os.path.join(base_dir, "static")
 
     if os.path.exists(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")

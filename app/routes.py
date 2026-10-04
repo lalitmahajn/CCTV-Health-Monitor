@@ -17,6 +17,7 @@ from app.auth import (
 )
 from app.csv_utils import parse_and_validate_csv, generate_csv_template, export_cameras_to_csv
 from app.simulator import seed_270_cameras
+from app.paths import get_snapshots_dir
 
 class CameraCreate(BaseModel):
     name: str
@@ -411,8 +412,7 @@ def setup_routes(app):
             raise HTTPException(status_code=404, detail="Camera not found")
 
         rtsp_url = cam["rtsp_url"]
-        snapshot_dir = os.path.join("static", "snapshots")
-        os.makedirs(snapshot_dir, exist_ok=True)
+        snapshot_dir = get_snapshots_dir()
         filename = f"cam_{camera_id}.jpg"
         filepath = os.path.join(snapshot_dir, filename)
 
@@ -523,8 +523,7 @@ def setup_routes(app):
         async def _run_batch_snapshot_refresh():
             from app.scanner import grab_rtsp_snapshot
             import os
-            snapshot_dir = os.path.join("static", "snapshots")
-            os.makedirs(snapshot_dir, exist_ok=True)
+            snapshot_dir = get_snapshots_dir()
 
             state_lock = asyncio.Lock()
             db_lock = asyncio.Lock()

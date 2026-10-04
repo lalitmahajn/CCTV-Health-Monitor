@@ -37,7 +37,8 @@ class SafeStream:
 if sys.stdout is None or sys.stderr is None:
     _log_fh = None
     try:
-        _base = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
+        from app.paths import get_data_dir
+        _base = get_data_dir()
         _log_fh = open(os.path.join(_base, "cctv_service.log"), "a", encoding="utf-8")
     except Exception:
         pass
@@ -315,12 +316,8 @@ class TrayApplication:
         webbrowser.open(self.dashboard_url)
 
     def on_open_snapshots(self, icon=None, item=None):
-        if getattr(sys, "frozen", False):
-            base_dir = os.path.dirname(sys.executable)
-        else:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-        snapshots_dir = os.path.join(base_dir, "static", "snapshots")
-        os.makedirs(snapshots_dir, exist_ok=True)
+        from app.paths import get_snapshots_dir
+        snapshots_dir = get_snapshots_dir()
         try:
             os.startfile(snapshots_dir)
         except Exception as e:
@@ -371,11 +368,8 @@ class TrayApplication:
 
         # 2. Initialize Database if needed
         import asyncio
-        if getattr(sys, "frozen", False):
-            exe_dir = os.path.dirname(sys.executable)
-            db_path = os.environ.get("CCTV_DB_PATH", os.path.join(exe_dir, "cctv_monitor.db"))
-        else:
-            db_path = os.environ.get("CCTV_DB_PATH", "cctv_monitor.db")
+        from app.paths import get_db_path
+        db_path = get_db_path()
         asyncio.run(init_db(db_path))
 
         # 3. Start Uvicorn Server in Background Thread

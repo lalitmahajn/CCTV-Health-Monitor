@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 from cryptography.fernet import Fernet
+from app.paths import get_data_dir
 
-KEY_FILE = Path(".secret.key")
+KEY_FILE = Path(get_data_dir()) / ".secret.key"
 ENV_KEY_VAR = "CCTV_SECRET_KEY"
 
 _cipher: Optional[Fernet] = None

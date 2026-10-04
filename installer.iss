@@ -28,10 +28,15 @@ OutputBaseFilename=CCTV_Health_Monitor_Setup_v1.0.1
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-; Allow installation for current user or all users (Win 10 & Win 11)
+PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=commandline dialog
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableWelcomePage=no
+
+[Dirs]
+Name: "{app}"; Permissions: users-full
+Name: "{app}\static"; Permissions: users-full
+Name: "{app}\static\snapshots"; Permissions: users-full
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

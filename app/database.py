@@ -1,14 +1,18 @@
 import os
 import aiosqlite
+from app.paths import get_db_path
 
-DEFAULT_DB_PATH = os.environ.get("CCTV_DB_PATH", "cctv_monitor.db")
+DEFAULT_DB_PATH = get_db_path()
 
 def get_db(db_path: str = None):
-    path = db_path or DEFAULT_DB_PATH
+    path = db_path or get_db_path()
     return aiosqlite.connect(path, timeout=30.0)
 
 async def init_db(db_path: str = None):
-    path = db_path or DEFAULT_DB_PATH
+    path = db_path or get_db_path()
+    parent_dir = os.path.dirname(os.path.abspath(path))
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
     async with aiosqlite.connect(path, timeout=30.0) as db:
         await db.execute("PRAGMA journal_mode = WAL")
         await db.execute("PRAGMA busy_timeout = 30000")
