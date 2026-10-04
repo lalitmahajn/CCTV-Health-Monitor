@@ -3,6 +3,7 @@ export type CameraStatus = 'ONLINE' | 'OFFLINE' | 'WARNING' | 'NO_CAM';
 export interface Camera {
   id: number;
   name: string;
+  alias?: string | null;
   dvr_nvr_name: string;
   location?: string;
   ip_address: string;
