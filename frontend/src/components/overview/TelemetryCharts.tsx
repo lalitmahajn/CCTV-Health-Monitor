@@ -102,7 +102,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ cameras }) => 
               </CardTitle>
             </div>
             <Badge variant="outline" className="font-mono text-xs">
-              9 Recorders (32 CH / Bay)
+              {nvrChartData.length} Recorders
             </Badge>
           </div>
           <CardDescription>

@@ -127,10 +127,10 @@ export const FleetMatrixView: React.FC<FleetMatrixViewProps> = ({
             <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <Select value={selectedNvr} onValueChange={handleNvrSelect}>
               <SelectTrigger className="w-[210px] h-9 text-xs font-medium">
-                <SelectValue placeholder="All NVR Bays (9 Recorders)" />
+                <SelectValue placeholder={`All NVR Bays (${groupKeys.length} Recorders)`} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All NVR Bays (9 Recorders)</SelectItem>
+                <SelectItem value="ALL">All NVR Bays ({groupKeys.length} Recorders)</SelectItem>
                 {groupKeys.map((key) => (
                   <SelectItem key={key} value={key}>
                     {key} ({nvrGroups[key]?.length || 0} CH)
